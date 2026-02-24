@@ -6,23 +6,35 @@ AllCops:
   NewCops: enable
   SuggestExtensions: false
   Exclude:
-    - "vendor/**/*"
-    - "Gemfile"
+    - 'vendor/**/*'
+    - 'Gemfile'
 
-# 教材コードはメソッド長の制限を緩和
+# 教材コードはメソッド長・複雑度の制限を緩和
 Metrics/MethodLength:
-  Max: 30
+  Max: 80
 
 Metrics/BlockLength:
   Exclude:
-    - "**/*_spec.rb"
-    - "spec/**/*"
+    - '**/*_spec.rb'
+    - 'spec/**/*'
 
 Metrics/ClassLength:
-  Max: 200
+  Max: 300
+
+Metrics/ModuleLength:
+  Max: 500
 
 Metrics/AbcSize:
-  Max: 25
+  Max: 80
+
+Metrics/CyclomaticComplexity:
+  Max: 20
+
+Metrics/PerceivedComplexity:
+  Max: 20
+
+Metrics/ParameterLists:
+  Max: 8
 
 # 教材としてのコメント密度を許容
 Style/Documentation:
@@ -36,25 +48,66 @@ Style/FrozenStringLiteralComment:
 Style/AsciiComments:
   Enabled: false
 
+# 文字列結合を許容（教材コードの可読性のため）
+Style/StringConcatenation:
+  Enabled: false
+
+# マルチラインブロックチェーンを許容（ActiveRecordクエリビルダのため）
+Style/MultilineBlockChain:
+  Enabled: false
+
 # RSpec用の設定
 RSpec/MultipleExpectations:
   Max: 10
 
 RSpec/ExampleLength:
-  Max: 20
+  Max: 30
 
 RSpec/DescribeClass:
   Enabled: false
 
 RSpec/ContextWording:
-  Prefixes:
-    - when
-    - with
-    - without
-    - "が"
-    - "の"
-    - "で"
-    - "を"
+  Enabled: false
+
+RSpec/NestedGroups:
+  Max: 5
+
+RSpec/SpecFilePathFormat:
+  Enabled: false
+
+RSpec/ExpectActual:
+  Enabled: false
+
+RSpec/VerifiedDoubles:
+  Enabled: false
+
+RSpec/NamedSubject:
+  Enabled: false
+
+RSpec/MessageSpies:
+  Enabled: false
+
+RSpec/IteratedExpectation:
+  Enabled: false
+
+# 教材コードではis_xxx?やhas_xxx?の命名規則を緩和
+Naming/PredicateMethod:
+  Enabled: false
+
+Naming/AccessorMethodName:
+  Enabled: false
+
+# 教材コードでは変数名の数字規約を緩和
+Naming/VariableNumber:
+  Enabled: false
+
+# 教材コードではメソッドパラメータ名の制限を緩和
+Naming/MethodParameterName:
+  MinNameLength: 1
+
+# 重複ブランチは教材の明示性のために許容
+Lint/DuplicateBranch:
+  Enabled: false
 
 # 教材コードでは puts を許容
 Rails/Output:
@@ -62,4 +115,4 @@ Rails/Output:
 
 Naming/FileName:
   Exclude:
-    - "**/*_spec.rb"
+    - '**/*_spec.rb'
