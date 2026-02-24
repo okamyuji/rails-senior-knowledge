@@ -22,6 +22,9 @@ gem "rack", "~> 3.1"
 # Database
 gem "sqlite3", "~> 2.6"
 
+# Authentication
+gem "bcrypt", "~> 3.1"
+
 # Background jobs / cache / cable
 gem "solid_queue", "~> 1.1"
 gem "solid_cache", "~> 1.0"

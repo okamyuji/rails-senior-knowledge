@@ -1,6 +1,85 @@
+# Ruby / Bundler
 /.bundle/
-/vendor/bundle
+/vendor/bundle/
 *.gem
 *.rbc
+Gemfile.lock
+
+# RSpec
+spec/examples.txt
+
+# Logs
+/log/
+*.log
+
+# SQLite
+*.sqlite3
+*.sqlite3-journal
+*.sqlite3-shm
+*.sqlite3-wal
+
+# Environment / Secrets (GitGuardian)
+.env
+.env.*
+!.env.example
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*.jks
+master.key
+credentials.yml.enc
+config/credentials/
+config/master.key
+
+# IDE / Editor
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+\#*\#
+.#*
+*.sublime-project
+*.sublime-workspace
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+
+# Linux
+*~
+
+# Ruby version managers
+.rvmrc
+.ruby-gemset
+
+# Coverage
+/coverage/
+/.simplecov
+
+# Temporary files
+/tmp/
+*.tmp
+*.bak
+*.orig
+
+# RubyMine
+/.rakeTasks
+
+# Spring
+/spring/*.pid
+
+# Byebug / Debug
 .byebug_history
+.irb_history
+.pry_history
+
+# Git worktrees
 .worktrees/
+
+# Claude Code
+.claude/
