@@ -1,0 +1,65 @@
+require:
+  - rubocop-rspec
+
+AllCops:
+  TargetRubyVersion: 3.4
+  NewCops: enable
+  SuggestExtensions: false
+  Exclude:
+    - "vendor/**/*"
+    - "Gemfile"
+
+# 教材コードはメソッド長の制限を緩和
+Metrics/MethodLength:
+  Max: 30
+
+Metrics/BlockLength:
+  Exclude:
+    - "**/*_spec.rb"
+    - "spec/**/*"
+
+Metrics/ClassLength:
+  Max: 200
+
+Metrics/AbcSize:
+  Max: 25
+
+# 教材としてのコメント密度を許容
+Style/Documentation:
+  Enabled: false
+
+# frozen_string_literal マジックコメント必須
+Style/FrozenStringLiteralComment:
+  EnforcedStyle: always
+
+# 日本語コメントを許容
+Style/AsciiComments:
+  Enabled: false
+
+# RSpec用の設定
+RSpec/MultipleExpectations:
+  Max: 10
+
+RSpec/ExampleLength:
+  Max: 20
+
+RSpec/DescribeClass:
+  Enabled: false
+
+RSpec/ContextWording:
+  Prefixes:
+    - when
+    - with
+    - without
+    - "が"
+    - "の"
+    - "で"
+    - "を"
+
+# 教材コードでは puts を許容
+Rails/Output:
+  Enabled: false
+
+Naming/FileName:
+  Exclude:
+    - "**/*_spec.rb"
