@@ -253,15 +253,17 @@ module YjitOptimization
 
     # 複数ラウンドの計測
     elapsed_times = []
-    measurement_rounds.times do
-      start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      measure_iterations.times { block.call }
-      end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
-      elapsed_times << (end_time - start_time)
+    begin
+      measurement_rounds.times do
+        start_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        measure_iterations.times { block.call }
+        end_time = Process.clock_gettime(Process::CLOCK_MONOTONIC)
+        elapsed_times << (end_time - start_time)
+      end
+    ensure
+      # 例外発生時も必ずGCを再有効化する
+      GC.enable
     end
-
-    # GCを再度有効化する
-    GC.enable
 
     sorted_times = elapsed_times.sort
     median_time = sorted_times[sorted_times.length / 2]

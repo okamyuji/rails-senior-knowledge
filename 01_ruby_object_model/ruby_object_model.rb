@@ -137,7 +137,7 @@ module RubyObjectModel
       same_integer_identity: 42.equal?(42),
       # Symbol も即値（同じ名前 = 同じオブジェクト）
       symbol_same_object: sym_a.equal?(sym_b),
-      symbol_same_id: sym_a.equal?(sym_b),
+      symbol_same_id: sym_a.object_id == sym_b.object_id, # rubocop:disable Lint/IdentityComparison
       # true, false, nil も即値
       true_frozen: true.frozen?,
       false_frozen: false.frozen?,

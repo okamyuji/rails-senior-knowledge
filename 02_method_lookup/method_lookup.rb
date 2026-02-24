@@ -272,10 +272,8 @@ module MethodLookup
     ALLOWED_ATTRIBUTES = %i[name email age].freeze
 
     def method_missing(method_name, *args)
-      # find_by_xxx パターンにマッチするか確認
-      if method_name.to_s =~ /\Afind_by_(\w+)\z/
-        attribute = Regexp.last_match(1).to_sym
-        return find_by_attribute(attribute, args.first) if ALLOWED_ATTRIBUTES.include?(attribute)
+      if (attribute = dynamic_findable_attribute(method_name))
+        return find_by_attribute(attribute, args.first)
       end
 
       # マッチしないメソッドは super に委譲（NoMethodError を発生させる）
@@ -283,15 +281,20 @@ module MethodLookup
     end
 
     def respond_to_missing?(method_name, include_private = false)
-      if method_name.to_s =~ /\Afind_by_(\w+)\z/
-        attribute = Regexp.last_match(1).to_sym
-        return ALLOWED_ATTRIBUTES.include?(attribute)
-      end
-
-      super
+      !!dynamic_findable_attribute(method_name) || super
     end
 
     private
+
+    # find_by_xxx パターンにマッチする属性名を返す
+    # String#match を使用し、Regexp.last_match のグローバル状態への依存を回避
+    def dynamic_findable_attribute(method_name)
+      match = method_name.to_s.match(/\Afind_by_(\w+)\z/)
+      return unless match
+
+      attribute = match[1].to_sym
+      ALLOWED_ATTRIBUTES.include?(attribute) ? attribute : nil
+    end
 
     def find_by_attribute(attribute, value)
       { attribute: attribute, value: value, found: true }

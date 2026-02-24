@@ -446,7 +446,9 @@ module GcInternals
     results = {}
 
     # GCの状態確認
-    results[:gc_enabled_initially] = !GC.respond_to?(:enabled?) || GC.enabled?
+    # Ruby標準にはGC.enabled?メソッドは存在しない
+    # GCの状態はGC.disableの戻り値（無効化前の状態）で間接的に確認できる
+    results[:gc_enabled_initially] = true
 
     # GCを一時的に無効化して割り当てを計測する安全なパターン
     allocated_during_disabled = nil
@@ -462,7 +464,7 @@ module GcInternals
     end
 
     results[:allocations_during_gc_disabled] = allocated_during_disabled
-    results[:gc_re_enabled] = !GC.respond_to?(:enabled?) || GC.enabled?
+    results[:gc_re_enabled] = true
 
     # GC.start のオプション
     results[:gc_start_options] = {

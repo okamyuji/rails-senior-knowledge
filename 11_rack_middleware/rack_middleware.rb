@@ -111,6 +111,8 @@ module RackMiddleware
   # 認証失敗時の 401 レスポンスがその典型例。
 
   class AuthenticationMiddleware
+    # 教育用のデモ値。本番では ENV.fetch('API_TOKEN') や
+    # Rails.application.credentials.api_token を使用すること
     VALID_TOKEN = 'secret-token-123'
 
     def initialize(app, options = {})

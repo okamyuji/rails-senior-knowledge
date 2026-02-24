@@ -418,7 +418,7 @@ module NPlusOneDetection
 
       table = table_match[1]
       # パラメータ部分を正規化してパターン化
-      normalized = sql.gsub('= ?', '= ?').gsub(/IN \([^)]+\)/, 'IN (...)')
+      normalized = sql.gsub(/= \$?\d+/, '= ?').gsub(/IN \([^)]+\)/, 'IN (...)')
       query_patterns[table] << normalized
     end
 

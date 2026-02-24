@@ -377,12 +377,14 @@ module RefinementsDemo
   module MyGem
     # 基本的な機能は通常のモジュールメソッドとして提供
     def self.parse_duration(string)
-      case string
-      when /\A(\d+)d\z/ then Regexp.last_match(1).to_i * 86_400
-      when /\A(\d+)h\z/ then Regexp.last_match(1).to_i * 3_600
-      when /\A(\d+)m\z/ then Regexp.last_match(1).to_i * 60
-      else
-        raise ArgumentError, "Invalid duration format: #{string}"
+      match = string.match(/\A(\d+)([dhm])\z/)
+      raise ArgumentError, "Invalid duration format: #{string}" unless match
+
+      value = match[1].to_i
+      case match[2]
+      when 'd' then value * 86_400
+      when 'h' then value * 3_600
+      when 'm' then value * 60
       end
     end
 

@@ -140,9 +140,9 @@ RSpec.describe BackgroundJobDesign do
     let(:result) { described_class.demonstrate_error_handling }
 
     it 'リトライ可能エラーと永続的エラーが正しく分類されることを確認する' do
-      expect(result[:retry_errors]).to eq 2
-      expect(result[:discard_errors]).to eq 2
-      expect(result[:total_errors_handled]).to eq 4
+      expect(result[:retry_errors]).to eq 3
+      expect(result[:discard_errors]).to eq 3
+      expect(result[:total_errors_handled]).to eq 6
     end
 
     it '各エラーに対して適切なアクションが決定されることを確認する' do

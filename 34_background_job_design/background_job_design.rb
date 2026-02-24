@@ -521,13 +521,13 @@ module BackgroundJobDesign
     retriable_error = Class.new(base_error)
     network_error = Class.new(retriable_error)
     rate_limit_error = Class.new(retriable_error)
-    Class.new(retriable_error)
+    timeout_error = Class.new(retriable_error)
 
     # 永続的エラー（リトライ不可）
     permanent_error = Class.new(base_error)
     record_not_found = Class.new(permanent_error)
     validation_error = Class.new(permanent_error)
-    Class.new(permanent_error)
+    authorization_error = Class.new(permanent_error)
 
     # --- エラー分類に基づくハンドラ ---
     error_handler_results = []
@@ -548,8 +548,10 @@ module BackgroundJobDesign
     # 各種エラーの処理を実行
     handle_job_error.call(network_error.new('接続タイムアウト'))
     handle_job_error.call(rate_limit_error.new('APIレート制限超過'))
+    handle_job_error.call(timeout_error.new('リクエストタイムアウト'))
     handle_job_error.call(record_not_found.new('User ID 999 が見つかりません'))
     handle_job_error.call(validation_error.new('メールアドレスの形式が不正です'))
+    handle_job_error.call(authorization_error.new('権限が不足しています'))
 
     # --- ActiveJob風のエラーハンドリング設定例 ---
     active_job_config = {

@@ -218,7 +218,7 @@ module QueryPlanAnalysis
 
     # --- パターン2: COUNT最適化 ---
     # COUNTはインデックスを使えば高速に計算できる
-    QpModels::Product.where(category: 'Electronics').explain
+    count_plan = QpModels::Product.where(category: 'Electronics').explain
 
     # --- パターン3: EXISTS vs COUNT ---
     # 存在確認にはCOUNT > 0よりEXISTSの方が効率的
@@ -247,6 +247,7 @@ module QueryPlanAnalysis
     {
       covering_index: explain_to_s(covering_plan),
       count_optimization: {
+        count_explain: explain_to_s(count_plan),
         exists_plan: exists_plan,
         count_plan: count_plan_raw,
         recommendation: '存在確認にはexists?メソッドを使用する（COUNT > 0は非効率）'

@@ -42,7 +42,7 @@ module ZeitwerkAutoloader
       constant_name
         .gsub('::', '/')
         .split('/')
-        .map { |segment| segment.gsub(/([A-Z])/) { "_#{::Regexp.last_match(1).downcase}" }.sub(/\A_/, '') }
+        .map { |segment| segment.gsub(/[A-Z]/) { |char| "_#{char.downcase}" }.sub(/\A_/, '') }
         .join('/') + '.rb'
     end
 
@@ -57,12 +57,6 @@ module ZeitwerkAutoloader
         'middleware/rate_limiter.rb' => 'Middleware::RateLimiter',
         'services/payment/stripe_gateway.rb' => 'Services::Payment::StripeGateway'
       }
-
-      examples.transform_values.with_index.each_with_object({}) do |(expected, _idx), result|
-        path = examples.key(expected)
-        computed = file_path_to_constant_name(path)
-        result[path] = { expected: expected, computed: computed, match: expected == computed }
-      end
 
       examples.map do |path, expected|
         computed = file_path_to_constant_name(path)
