@@ -13,11 +13,11 @@ gem "rubocop-rspec", "~> 3.6"
 
 # Rails components (individual gems, not full Rails)
 gem "activerecord", "~> 8.0"
-gem "activesupport", "~> 8.0"
+gem "activesupport", "~> 8.1"
 gem "activemodel", "~> 8.0"
 gem "actionpack", "~> 8.0"
 gem "railties", "~> 8.0"
-gem "rack", "~> 3.1"
+gem "rack", "~> 3.2"
 
 # Database
 gem "sqlite3", "~> 2.6"
