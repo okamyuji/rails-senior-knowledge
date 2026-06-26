@@ -13,11 +13,14 @@ module ZeitwerkAutoloader
   module NamingConvention
     # Zeitwerkの命名規約のコア: ファイルパスを定数名に変換する
     #
-    # 規約:
+    # 規約（Zeitwerkの**純粋な**path-to-constantマッピングのみを示す。
+    # Railsのapp/{models,controllers}/concerns はネストrootとして別途登録される
+    # ため、`app/models/concerns/foo.rb` は実際には `Concerns::Foo` ではなく
+    # `Foo` になる。これは以下の基本ルールの上に乗る Rails 側の設定）:
     #   user.rb           → User
     #   user_profile.rb   → UserProfile
     #   html_parser.rb    → HtmlParser (デフォルト、カスタムinflectionで HTMLParser も可)
-    #   concerns/fooable.rb → Concerns::Fooable
+    #   concerns/fooable.rb → Concerns::Fooable  （rootが concerns の親の場合）
     #   api/v1/users.rb  → Api::V1::Users
     #
     # Zeitwerkはこの変換にString#camelizeに相当する処理を使う。
@@ -136,9 +139,14 @@ module ZeitwerkAutoloader
       # 例: app/models/user.rb の場合
       #   Object.autoload(:User, "app/models/user.rb")
       #
-      # 例: app/models/concerns/searchable.rb の場合
-      #   まず Concerns モジュールを設定し、
-      #   Concerns.autoload(:Searchable, "app/models/concerns/searchable.rb")
+      # 例: lib/myapp/foo.rb の場合（plain Zeitwerk）
+      #   まず Myapp モジュールを設定し、
+      #   Myapp.autoload(:Foo, "lib/myapp/foo.rb")
+      #
+      # 注意: Rails では app/{models,controllers}/concerns 自体が
+      # Zeitwerk のネストしたルートディレクトリとして扱われるため、
+      # `app/models/concerns/searchable.rb` は `Concerns::Searchable` ではなく
+      # `Searchable` として直接 Object 配下に autoload される。
 
       steps = [
         '1. Zeitwerk::Loader.new でローダーインスタンスを作成',
