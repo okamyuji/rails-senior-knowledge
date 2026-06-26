@@ -389,8 +389,12 @@ class ExternalApiJob < ApplicationJob
   end
 
   def record_failure
-    redis.incr(CIRCUIT_BREAKER_KEY)
-    redis.expire(CIRCUIT_BREAKER_KEY, RECOVERY_TIME.to_i)
+    # incr → expire を別々に発行すると、間でプロセスが落ちた場合に
+    # TTL なしの永続キーが残るリスクがある。MULTI でアトミックにまとめる。
+    redis.multi do |txn|
+      txn.incr(CIRCUIT_BREAKER_KEY)
+      txn.expire(CIRCUIT_BREAKER_KEY, RECOVERY_TIME.to_i)
+    end
   end
 
   def reset_circuit

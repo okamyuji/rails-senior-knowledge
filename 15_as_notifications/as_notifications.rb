@@ -105,11 +105,20 @@ module AsNotifications
     # 主要な属性:
     # - name:       イベント名
     # - payload:    任意のデータを格納するハッシュ
-    # - time:       イベント開始時刻（Float秒。単一引数 |event| 形式は常にモノトニック秒）
-    # - end:        イベント終了時刻（Float秒。time と同じ時計種別）
+    # - time:       イベント開始時刻（Float秒）
+    # - end:        イベント終了時刻（Float秒、time と同じ時計種別）
     # - duration:   所要時間（ミリ秒。Float）
     # - transaction_id: イベントのユニークID
-    # 注: 内部ストレージはミリ秒だが、#time / #end は 1000.0 で割って秒として返す。
+    #
+    # 時計の種別はサブスクライブ方法と引数形式で決まる:
+    #   - subscribe(name) { |name, start, finish, id, payload| ... } (5-arg, 本demoの形式)
+    #     → start/finish は Time.now ベースの**壁時計**。Event.new(*args) も同じ
+    #   - subscribe(name) { |event| ... } (1-arg, EventObject path)
+    #     → Event#start! / Event#finish! が Process.clock_gettime(MONOTONIC) を使い、
+    #       `#time` / `#end` は**モノトニック秒**になる
+    #   - monotonic_subscribe(name) { |event| ... }
+    #     → 上の1-arg形式と同じくモノトニック秒（明示的な opt-in API）
+    # 内部ストレージはミリ秒で保持され、#time / #end は 1000.0 で割って秒として返される。
     def self.demonstrate_event_attributes
       event_data = nil
 

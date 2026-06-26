@@ -32,7 +32,8 @@ end
 
 def file_lines(file)
   @file_lines_cache ||= {}
-  @file_lines_cache[file] ||= File.readlines(file)
+  # 日本語の正規表現比較を非UTF-8ロケール環境でも壊さないため、エンコーディングを明示する
+  @file_lines_cache[file] ||= File.readlines(file, encoding: 'UTF-8')
 end
 
 def each_target_line

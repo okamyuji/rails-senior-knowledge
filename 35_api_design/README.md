@@ -490,7 +490,18 @@ class IdempotencyMiddleware
         # 処理中（__PENDING__）の場合は409を返してクライアントにリトライさせる
         return [409, { 'Content-Type' => 'application/json' }, [{ error: 'in_progress' }.to_json]] if cached == '__PENDING__'
 
-        parsed = JSON.parse(cached)
+        # cached が nil の場合: __PENDING__ の TTL 内に先行リクエストが SET nx で
+        # claim したが、その後 redis eviction / 期限切れで消えた、というレアケース。
+        # その場合は claim 競合は終わっているので、安全に再処理する。
+        return @app.call(env) if cached.nil?
+
+        # 壊れたキャッシュエントリで middleware 全体を落とさないように、
+        # JSON パースは rescue で囲って失敗時はパススルーする。
+        begin
+          parsed = JSON.parse(cached)
+        rescue JSON::ParserError
+          return @app.call(env)
+        end
         [parsed['status'], parsed['headers'], [parsed['body']]]
       end
     end

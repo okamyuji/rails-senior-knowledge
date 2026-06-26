@@ -612,9 +612,10 @@ module QueryPlanAnalysis
   # ==========================================================================
 
   # explain の戻り値からクエリプラン文字列を取得するヘルパー
-  # Rails 7.2+ では explain が ExplainProxy を返すため inspect を呼んで実プランを取得する。
-  # Rails 7.1 以前は既に整形済み文字列だが、inspect は自身を返すように上書きされているため
-  # どちらでも同じ呼び出しで安全に文字列が得られる。
+  # Rails 7.2+ では explain が ExplainProxy を返すため、to_s 代わりに inspect を呼んで
+  # 整形済みプラン文字列を取得する。ExplainProxy#inspect は表示用にプラン文字列を返すよう
+  # オーバーライドされている。Rails 7.1 以前は explain が既に文字列なので inspect も文字列を
+  # 返し、どちらのバージョンでも同じ呼び出しで安全に文字列が得られる。
   def explain_to_s(explain_result)
     explain_result.inspect
   end

@@ -23,7 +23,7 @@
 # --yjit-disable          : Ruby起動時はYJITを無効化、RubyVM::YJIT.enableで遅延有効化（Ruby 3.3+）
 #
 # 本番環境での推奨設定例:
-#   RUBY_YJIT_ENABLE=1 （環境変数による有効化、Ruby 3.3+）
+#   RUBY_YJIT_ENABLE=1 （環境変数による有効化、Ruby 3.2+）
 #   ruby --yjit --yjit-mem-size=256 app.rb
 #
 # ============================================================================
