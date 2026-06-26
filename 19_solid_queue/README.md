@@ -46,6 +46,14 @@ solid_queue_pauses                ← 一時停止されたキュー
     │         │
     │    時間到来 → ready_executions に移動します（Dispatcherが実行します）
     │
+    ├─ ConcurrencyControls(`limits_concurrency_to`) のキー競合
+    │    → blocked_executions に登録（セマフォ獲得待ち）
+    │         │
+    │    先行ジョブが完了してセマフォが解放されたタイミング、または
+    │    SolidQueue::Job.dispatch_next_blocked_executions による定期チェック
+    │         │
+    │    → ready_executions に移動します
+    │
     └─ 即時実行
          → ready_executions に登録
               │
@@ -56,6 +64,8 @@ solid_queue_pauses                ← 一時停止されたキュー
               │
          ├─ 成功 → jobs.finished_at を設定します
          │         claimed_executions を削除します
+         │         （concurrencyキーがあれば semaphores を1解放し、
+         │           blocked_executions から後続を選ぶ）
          │
          └─ 失敗 → failed_executions に登録します
                    claimed_executions を削除します

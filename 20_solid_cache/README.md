@@ -31,9 +31,10 @@ Solid CacheはRails
 │  SolidCache::    │
 │  Store           │
 │                  │
-│  - キー正規化     │  キーをSHA256でハッシュ化します
+│  - key_hash 計算  │  生キーをそのまま保存しつつ、検索用に
+│                  │  XXH64 で 64bit ハッシュを算出します
 │  - シリアライズ   │  MarshalまたはJSONを使用します
-│  - シャード選定   │  キーハッシュでシャードを決定します
+│  - シャード選定   │  key_hash でシャードを決定します
 └────────┬─────────┘
          │
     ┌────┴────┐
@@ -80,9 +81,9 @@ CREATE TABLE solid_cache_entries (
 
 書き込み (write)
   │
-  ├─ キー正規化 (SHA256)
+  ├─ key_hash 算出 (XXH64, 64bit)
   ├─ 値シリアライズ (Marshal.dump)
-  ├─ UPSERT実行
+  ├─ UPSERT実行 (key_hash UNIQUE で同一キーを更新)
   └─ エビクション判定
        │
        ├─ サイズ超過なし → 完了
@@ -91,14 +92,16 @@ CREATE TABLE solid_cache_entries (
 
 読み取り (read)
   │
-  ├─ キー正規化 (SHA256)
-  ├─ SELECT実行
+  ├─ key_hash 算出 (XXH64, 64bit)
+  ├─ SELECT (WHERE key_hash = ? AND key = ?)
   ├─ TTL期限切れチェック
   │   ├─ 期限内 → デシリアライズして返します
   │   └─ 期限切れ → 遅延削除し、nilを返します
   └─ ヒットしない → nilを返します
 
 ```
+
+`key_hash` は検索用インデックスのキーであり、生キーそのものを置き換えるものではありません。`key` カラムには元のキーがそのまま保存され、SELECT時には `key_hash` でインデックスを引いた後、衝突を排除するために `key` も比較されます。本リポジトリの教育用 `.rb` 実装では概念単純化のため両者をまとめてしまっており、本物のSolid Cacheとは構造が異なる点に注意してください。
 
 ## FIFOとLRUの比較
 

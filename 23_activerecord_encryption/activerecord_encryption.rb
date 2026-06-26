@@ -383,12 +383,14 @@ module ActiveRecordEncryption
     ciphertext_unchanged = original_ciphertext == updated_ciphertext
 
     # 鍵ローテーションの概念的なフロー
+    # Rails標準には `db:encryption:rotate` のような再暗号化 rake タスクは存在しないので、
+    # 再暗号化は独自の rake タスク等でレコードに値を再代入する形で行う。
     rotation_steps = [
       '1. credentials.ymlに新しいprimary_keyを設定',
       '2. 古いprimary_keyをprevious配列に追加',
       '3. デプロイ後、新しいレコードは新しい鍵で暗号化',
       '4. 古いレコードは読み取り時に旧鍵で自動復号',
-      '5. rake db:encryption:rotate で全レコードを再暗号化'
+      '5. 独自rakeタスクで User.find_each { |u| u.update_columns(email: u.email, ...) } のように再暗号化'
     ]
 
     {

@@ -46,7 +46,7 @@ module BatchProcessing
   #
   # デフォルトのbatch_sizeは1000。
   # start / finish はカーソル列の値で範囲を指定する。
-  # Rails 7.1+ ではcursor:で任意の列（複合主キー対応）、order: :asc / :descで方向も指定できる。
+  # order: :asc / :desc は Rails 7.1+、cursor: で任意の列（複合主キー対応）は Rails 8.0+ で利用可能。
   module FindEach
     # find_eachの基本的な使い方
     def self.demonstrate_basic_find_each
