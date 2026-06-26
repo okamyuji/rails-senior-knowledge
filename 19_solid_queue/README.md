@@ -19,14 +19,17 @@ Solid Queueは以下の主要テーブルでジョブを管理します。
 
 ```text
 
-solid_queue_jobs                 ← すべてのジョブのマスターレコード
-solid_queue_ready_executions     ← 即時実行可能なジョブ（ポーリング対象）
-solid_queue_claimed_executions   ← ワーカーが取得済みのジョブ
-solid_queue_failed_executions    ← 実行に失敗したジョブ
-solid_queue_scheduled_executions ← 将来実行予定のジョブ
-solid_queue_recurring_executions ← 定期実行ジョブの管理
-solid_queue_processes            ← アクティブなワーカープロセス
-solid_queue_semaphores           ← 同時実行制御用セマフォ
+solid_queue_jobs                  ← すべてのジョブのマスターレコード
+solid_queue_ready_executions      ← 即時実行可能なジョブ（ポーリング対象）
+solid_queue_claimed_executions    ← ワーカーが取得済みのジョブ
+solid_queue_blocked_executions    ← `limits_concurrency_to` で待機させられているジョブ
+solid_queue_failed_executions     ← 実行に失敗したジョブ
+solid_queue_scheduled_executions  ← 将来実行予定のジョブ
+solid_queue_recurring_executions  ← 定期実行ジョブの管理
+solid_queue_recurring_tasks       ← 定期実行ジョブの定義
+solid_queue_processes             ← アクティブなワーカープロセス
+solid_queue_semaphores            ← 同時実行制御用セマフォ
+solid_queue_pauses                ← 一時停止されたキュー
 
 ```
 

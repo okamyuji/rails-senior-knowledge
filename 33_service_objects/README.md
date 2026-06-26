@@ -107,6 +107,13 @@ end
 class Result
   attr_reader :value, :error, :error_type
 
+  def initialize(success:, value: nil, error: nil, error_type: :unknown)
+    @success = success
+    @value = value
+    @error = error
+    @error_type = error_type
+  end
+
   def self.success(value = nil)
     new(success: true, value: value)
   end

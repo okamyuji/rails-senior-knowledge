@@ -247,11 +247,20 @@ SET innodb_lock_wait_timeout = 5;
 
 ```ruby
 
-# Railsでの設定
+# Railsでの設定（注意: PostgreSQLの SET はセッションスコープのため
+# コネクションがプールに返却されても設定が残り続け、後続の
+# 無関係なクエリにも適用されてしまう。トランザクション内で
+# SET LOCAL を使うか、操作後に RESET lock_timeout で戻すこと）
+ActiveRecord::Base.transaction do
+  ActiveRecord::Base.connection.execute("SET LOCAL lock_timeout = '5s'")
+  # ロック取得とクリティカルな処理
+end
 
-ActiveRecord::Base.connection.execute("SET lock_timeout = '5s'")
-
-```
+# あるいは database.yml の variables: で接続時に一律設定する
+# production:
+#   adapter: postgresql
+#   variables:
+#     lock_timeout: "5s"
 
 ### 防止策3: リトライパターン
 

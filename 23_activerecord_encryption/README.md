@@ -223,17 +223,33 @@ user.update!(
 
 #### パターン3: 暗号学的消去（Crypto-shredding）
 
+ActiveRecord Encryptionのデフォルト構成（`DerivedSecretKeyProvider`）では、`primary_key` と `key_derivation_salt` から全レコード共通の鍵が導出されるため、**ユーザーごとに独立した鍵は存在しません**。暗号学的消去を実装するには、独自の `KeyProvider` を実装してユーザーIDごとに鍵を分離する必要があります。
+
 ```ruby
 
-# ユーザー固有の暗号化鍵を破棄します
+# 例: ユーザー単位の KeyProvider を定義し、ユーザー削除時に鍵レコードを破棄する
+class PerUserKeyProvider
+  def encryption_key
+    # 現在のユーザーの鍵を返す（contextからuser_idを取得する設計）
+    key = UserEncryptionKey.find_by!(user_id: ActiveRecord::Encryption.context.user_id)
+    ActiveRecord::Encryption::Key.new(key.secret)
+  end
 
-# → バックアップも含めてデータが復号不可能になります
+  def decryption_keys(encrypted_message)
+    [encryption_key]
+  end
+end
 
-user.encryption_key.destroy!
+# ユーザー削除時に鍵レコードのみを物理削除する
+class User < ApplicationRecord
+  has_one :encryption_key_record, class_name: "UserEncryptionKey", dependent: :destroy
+end
+
+# user.destroy → UserEncryptionKey が削除され、バックアップ中の暗号文も復号不可能になる
 
 ```
 
-バックアップにデータが残っていても、鍵がなければ復号できないため、実質的にデータが「忘れられた」状態になります。
+鍵レコードを物理削除すれば、バックアップにデータが残っていても復号できないため、実質的にデータが「忘れられた」状態になります。設定例の詳細は[Active Record Encryption Guide #setting-up-custom-key-providers](https://guides.rubyonrails.org/active_record_encryption.html#setting-up-custom-key-providers) を参照してください。
 
 ### データ最小化の実装
 
@@ -299,15 +315,29 @@ active_record_encryption:
 
 ```
 
-ローテーション後の再暗号化は以下のコマンドで実行します。
+ActiveRecord Encryptionは復号時に `previous` を含むすべての鍵を順に試すため、設定を更新するだけで段階的な移行が可能です（**非決定的暗号化のみローテーション可能**。決定的暗号化はインデックス互換性のためローテーションできません）。
 
-```bash
+ローテーション後の再暗号化には、Rails標準のRakeタスクは存在しません。バッチで明示的に再暗号化する必要があります。
 
-# 全レコードを新しい鍵で再暗号化します
+```ruby
 
-bin/rails db:encryption:rotate
+# lib/tasks/encryption.rake などに定義
+namespace :app do
+  task reencrypt_users: :environment do
+    User.find_each do |user|
+      # Active Record Encryption は属性に値を再代入すると最新の primary_key で
+      # 再暗号化されるため、ダミー代入で全レコードを書き直す。
+      user.update_columns(
+        name: user.name,
+        phone_number: user.phone_number
+      )
+    end
+  end
+end
 
 ```
+
+旧鍵を `previous` から削除できるのは、すべての暗号化済みレコードを新鍵で書き直し終えた後です。
 
 ### セキュリティチェックリスト
 

@@ -7,9 +7,11 @@
 # Rubyがメソッド呼び出しを解決する際の探索順序を理解することは、
 # シニアRailsエンジニアにとって必須のスキルである。
 #
-# 探索順序: クラス → prepend されたモジュール（クラスの前） →
+# 探索順序: prepend されたモジュール（クラスより先・LIFO） → クラス自身 →
 #          include されたモジュール（逆順・LIFO） → スーパークラス →
 #          ... → BasicObject
+# Module#ancestors の並び順がそのまま探索順であり、prepend は ancestors の
+# 先頭側、include はクラスの直後に挿入される。
 #
 # この知識は以下の場面で必要となる:
 # - ActiveSupport::Concern の動作原理の理解

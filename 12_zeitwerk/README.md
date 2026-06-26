@@ -286,7 +286,7 @@ loader.collapse("#{__dir__}/models/concerns")
 
 ```
 
-Railsでは `concerns` ディレクトリはデフォルトでcollapseされています。
+Railsの `app/{models,controllers}/concerns` ディレクトリは**collapseではなくネストしたルートディレクトリ**としてZeitwerkが自動的に認識します。そのため `app/models/concerns/sluggable.rb` は `Concerns::Sluggable` ではなく `Sluggable` として定義されます（Zeitwerkは「ネストしたroot」を独立したrootとして扱う仕様）。`collapse` ディレクティブは、Rails標準の `concerns` 以外で同様の効果を得たい場合に使います（例: `loader.collapse("#{Rails.root}/app/models/shared")`）。
 
 ## 実行方法
 

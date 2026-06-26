@@ -40,14 +40,14 @@ class OrderConfirmationJob < ApplicationJob
     idempotency_key = "order_confirmation:#{order_id}"
 
     REDIS.with do |redis|
-      # 既に処理済みなら何もしません（at least once 配信に対する防御）
-      return if redis.exists?(idempotency_key) == 1
+      # SET NX EX を1コマンドで実行することで、check-and-set がアトミックになる。
+      # `exists?` → 処理 → `set` の3ステップに分けると、2つのジョブが同時に
+      # exists? を通過して二重メール送信を起こす可能性がある。
+      acquired = redis.set(idempotency_key, "1", ex: 24.hours.to_i, nx: true)
+      return unless acquired
 
-      # 処理を実行します
+      # ここに到達できるのは1ジョブだけ（鍵を取得した側）
       OrderMailer.confirmation(order).deliver_now
-
-      # 処理済みフラグを設定します（TTL付き）
-      redis.set(idempotency_key, "1", ex: 24.hours.to_i)
     end
   end
 end
@@ -85,14 +85,14 @@ class ProcessPaymentJob < ApplicationJob
   def perform(payment_id)
     payment = Payment.find(payment_id)
 
-    # 状態がpendingの場合のみ処理します（冪等性を保証）
-    return unless payment.pending?
-
-    result = PaymentGateway.charge(payment)
-
-    # 楽観的ロックで安全に更新します
+    # PaymentGateway.charge を with_lock の**外**で呼ぶと、2つの並行ジョブが
+    # 同じ payment を charge してしまい二重課金が発生する。
+    # with_lock で SELECT ... FOR UPDATE を取得してから状態確認・課金・更新を
+    # 単一トランザクションで行うことで二重課金を防ぐ。
     payment.with_lock do
-      return unless payment.pending?  # ダブルチェック
+      return unless payment.pending? # ロック取得後の状態確認
+
+      result = PaymentGateway.charge(payment)
       payment.update!(status: :completed, transaction_id: result.id)
     end
   end

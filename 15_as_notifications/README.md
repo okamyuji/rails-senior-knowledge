@@ -332,18 +332,19 @@ Rails.event.set_context(request_id: "abc-123")
 
 ```
 
-サブスクライバーは `#emit(event)` を実装したオブジェクトを登録します。
+サブスクライバーは `#emit(event)` を実装したオブジェクトを登録します。Rails 8.1の `ActiveSupport::EventReporter` は `event` を **Hashとしてサブスクライバーに渡します**（メソッド呼び出しではなくキーアクセスを使用）。Hashのキーは `:name` `:payload` `:tags` `:context` `:timestamp` `:source_location` です。
 
 ```ruby
 
 class JsonEventSubscriber
   def emit(event)
     payload = {
-      name: event.name,
-      payload: event.payload,
-      tags: event.tags,
-      context: event.context,
-      timestamp: event.timestamp
+      name: event[:name],
+      payload: event[:payload],
+      tags: event[:tags],
+      context: event[:context],
+      timestamp: event[:timestamp],
+      source_location: event[:source_location]
     }
     Rails.logger.info(payload.to_json)
   end
