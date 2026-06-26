@@ -49,27 +49,37 @@ db/
 
 ### 認証フローの全体像
 
+Rails 8.1 の認証ジェネレータが実際に生成するコードは、Cookie に `session.id`（整数）を `cookies.signed.permanent[:session_id]` として保存します。署名付きのため改ざんは検出されますが、ID の列挙耐性を高めたい場合は本リポジトリの教育用実装のように `token` カラム＋ランダムトークンへ差し替える設計も実務でよく使われます。
+
+> **要注意**: Rails 8.1 同梱のジェネレータは `cookies.signed.permanent[:session_id] = { value: session.id, httponly: true, same_site: :lax }` のように **`secure:` を設定しません**。本番で HTTPS 強制をミドルウェアや HSTS で担保できていれば実害は小さいですが、明示的に `secure: !Rails.env.local?` を加えるのが安全です（本リポジトリの教育用実装は明示派）。
+
 ```text
 
-ログインフロー:
+ログインフロー（Rails 8.1 ジェネレータが生成する形）:
   ブラウザ → SessionsController#create
-    → User.find_by(email_address:)
-    → user.authenticate(password)    # BCryptで検証
-    → Session.create!(user:)         # セッションレコード作成
-    → cookies.signed[:session_token] = session.token  # Cookie設定
+    → User.authenticate_by(email_address:, password:)  # 失敗時もダミーBCryptで定時化
+    → Session.create!(user:, ip_address:, user_agent:)
+    → cookies.signed.permanent[:session_id] = { value: session.id, ... }
+    → リダイレクト
+
+ログインフロー（本教材で扱うトークン化バージョン）:
+  ブラウザ → SessionsController#create
+    → User.authenticate_by(email_address:, password:)
+    → user.sessions.create!  # token カラムに SecureRandom.urlsafe_base64(32)
+    → cookies.signed.permanent[:session_token] = { value: session.token, ... }
     → リダイレクト
 
 リクエスト認証:
   ブラウザ → ApplicationController (before_action)
-    → cookies.signed[:session_token]を取得
-    → Session.find_by(token:)        # DBからセッション検索
+    → cookies.signed[:session_token] または [:session_id] を取得
+    → Session.find_by(token:) / Session.find_by(id:)
     → Current.session = session       # Currentに設定
     → Current.userで参照可能
 
 ログアウト:
   ブラウザ → SessionsController#destroy
-    → Current.session.destroy         # DBからセッション削除
-    → cookies.delete(:session_token)  # Cookie削除
+    → Current.session.destroy
+    → cookies.delete(:session_token)  # （ID版なら :session_id）
 
 ```
 
@@ -93,21 +103,31 @@ $2a$12$LJ3m4ys3L7gFpE3Rk5dMRuXMEJqDvsmBWFHGV2BIfM8Cg7YFlJYJm
 
 class User < ApplicationRecord
   has_secure_password
-  # 上記マクロは以下と等価です:
+  # 上記マクロは Rails 8.1 の `ActiveModel::SecurePassword` で以下を提供します:
   #
   # attr_reader :password
   #
-  # validates :password, presence: true, on: :create
-  # validates :password, length: { maximum: 72 }
-  # validates :password_confirmation,
-  #           presence: true, if: :password_confirmation
+  # # 1. password_digest の存在検証（カスタム validate ブロック）
+  # validate do |record|
+  #   record.errors.add(:password, :blank) unless record.password_digest.present?
+  # end
+  #
+  # # 2. 72バイト超のパスワードを :password_too_long として弾く
+  # #    （BCrypt の72バイト制限に合わせた事前バリデーション）
+  # validate { errors.add(:password, :password_too_long) if password_value.bytesize > 72 }
+  #
+  # # 3. 確認属性とのコンファメーション
+  # validates_confirmation_of :password, allow_nil: true
+  #
+  # # 4. （任意）パスワード再入力チャレンジ
+  # validate :password_challenge_matches, if: -> { password_challenge }
   #
   # def password=(unencrypted_password)
   #   if unencrypted_password.present?
   #     @password = unencrypted_password
   #     self.password_digest = BCrypt::Password.create(
   #       unencrypted_password,
-  #       cost: BCrypt::Engine.cost  # デフォルト12
+  #       cost: BCrypt::Engine.cost  # デフォルト12（テストでは BCrypt::Engine::MIN_COST = 4 を推奨）
   #     )
   #   end
   # end
@@ -156,6 +176,10 @@ end
 | パスワード変更時 | 全セッションを無効化します
 
 ## パスワードリセットフロー
+
+### authenticate_byとタイミング攻撃対策
+
+Rails 7.1+ で導入された `User.authenticate_by(email_address:, password:)` は、識別子と認証情報（has_secure_passwordの属性）を分離して扱い、ユーザーが見つからなくても `User.new(passwords)` でダミーのBCryptハッシュ計算を走らせて応答時間を均す実装です。厳密な定時比較ではなく「ハッシュ計算コストの均等化によるタイミング差の隠蔽」である点に注意してください。
 
 ### 安全なリセットフローの実装
 
@@ -343,10 +367,12 @@ end
 def regenerate_session(user)
   Current.session&.destroy
   new_session = user.sessions.create!
-  cookies.signed[:session_token] = {
+  cookies.signed.permanent[:session_token] = {
     value: new_session.token,
     httponly: true,
     same_site: :lax,
+    # secure: HTTPS経由でのみCookieを送信。Rails.env.local? は development/test で
+    # true となるヘルパーで、ローカル開発の HTTP 接続でも動作させるための定石
     secure: !Rails.env.local?
   }
 end

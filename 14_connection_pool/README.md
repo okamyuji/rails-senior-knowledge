@@ -205,7 +205,7 @@ end
 production:
   adapter: postgresql
   pool: <%= ENV.fetch("RAILS_MAX_THREADS") { 5 } %>
-  reaping_frequency: 10    # 10秒ごとにリーパーを実行します（デフォルトは60秒）
+  reaping_frequency: 10    # 10秒ごとにリーパーを実行します（Rails 8.1のデフォルトは20秒、Rails 7.x以前は60秒）
   idle_timeout: 300        # 5分でアイドル接続を切断します（デフォルトは300秒）
 
 ```

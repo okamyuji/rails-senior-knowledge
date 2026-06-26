@@ -341,7 +341,7 @@ module FiberInternals
     #    - storage: {} を指定すると空のストレージで開始
     #
     # 2. Thread.current[:key]
-    #    - 実はFiberローカル（Ruby 3.x以降）
+    #    - 実はFiberローカル（Ruby 1.9 で Fiber が導入されて以降ずっとこの挙動）
     #    - 他のFiberからは見えない
     #
     # 3. Thread.current.thread_variable_get(:key)

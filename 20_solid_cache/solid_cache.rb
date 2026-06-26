@@ -67,11 +67,12 @@ module SolidCacheInternals
   class CacheEntry < ActiveRecord::Base
     self.table_name = 'solid_cache_entries'
 
-    # 本物のSolid Cacheは XXH64 で 64bit の `key_hash` を計算し、`key`カラム
-    # （生キー）と別カラムで保持する（インデックスは `key_hash` 側に張る）。
+    # 本物のSolid Cache（gem 1.0系）は `Digest::SHA256.digest(key).unpack("q>").first`
+    # で算出した signed int64 を `key_hash` カラムに保持し、`key`カラム（生キー）と
+    # 別カラムで管理する（インデックスは `key_hash` 側に張る）。
     # 本教育用実装では概念を分かりやすくするため、`key_hash` を分離せず
     # `key` カラムに SHA-256 を base64 した値を入れる簡略形にしている。
-    # SHA-256 を使っているのは Ruby 標準ライブラリで完結させるためで、
+    # Base64文字列にしているのは ActiveRecord の string カラムで扱いやすくするためで、
     # 本物の Solid Cache とは構造が異なる点に注意。
     def self.normalize_key(key)
       "s3c-#{Digest::SHA256.base64digest(key)}"

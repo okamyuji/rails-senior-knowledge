@@ -14,7 +14,8 @@
 #
 # --yjit                  : YJITを有効化
 # --yjit-mem-size=N       : YJITメモリ全体の上限（MiB単位、デフォルト: 128MiB、Ruby 3.4で追加）
-# --yjit-exec-mem-size=N  : 実行可能メモリブロックのサイズ（旧オプション、デフォルト: 64MiB）
+# --yjit-exec-mem-size=N  : 実行可能メモリブロックのハードリミット（旧オプション、Ruby 3.4ではデフォルト未指定）
+#                           Ruby 3.2 では 64MiB、Ruby 3.3.1 では 48MiB がデフォルトだった
 # --yjit-call-threshold=N : メソッドをコンパイルするまでの呼び出し回数（デフォルト: 30、
 #                           ISEQ数が40000を超えると自動で120に増加）
 # --yjit-stats            : YJIT統計情報を有効化（パフォーマンス計測用）

@@ -358,15 +358,18 @@ module ApiDesign
     #   User.where('id > ?', cursor).order(:id).limit(limit + 1)
     class CursorPaginator
       DEFAULT_LIMIT = 20
+      MAX_LIMIT = 100
 
       # @param collection [Array] ソート済みコレクション
       # @param cursor [Object, nil] カーソル値（前ページの最後の要素のID等）
-      # @param limit [Integer] 取得件数
+      # @param limit [Integer] 取得件数（OffsetPaginatorと同じく下限1・上限MAX_LIMITでclampする）
       # @param cursor_field [Symbol] カーソルに使うフィールド名
       def initialize(collection, cursor: nil, limit: DEFAULT_LIMIT, cursor_field: :id)
         @collection = collection
         @cursor = cursor
-        @limit = limit
+        # `?limit=0` や `?limit=-5` でクエリが負の値になり SQL エラーや空配列を
+        # 生むのを防ぐため、Offsetと同じ clamp 戦略で下限/上限を保護する。
+        @limit = limit.to_i.clamp(1, MAX_LIMIT)
         @cursor_field = cursor_field
       end
 

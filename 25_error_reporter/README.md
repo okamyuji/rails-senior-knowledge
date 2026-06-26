@@ -332,14 +332,23 @@ end
 
 ### 3. テスト環境でのError Reporterの活用
 
+Rails 8.1 では `ActiveSupport::Testing::ErrorReporterAssertions` がフレームワーク標準で提供する `assert_error_reported` / `assert_no_error_reported` ヘルパーを使えます。これらは Minitest 用です。RSpec の `have_reported_error` マッチャは Rails 同梱ではなくコミュニティの gem（例: `rspec-rails` の補助マッチャや個別実装）が提供しているため、利用前にプロジェクトの依存に追加されているかを確認してください。
+
 ```ruby
 
-# テストでError Reporterの挙動を検証します
+# Minitest（Rails標準）
+class OrderServiceTest < ActiveSupport::TestCase
+  test "在庫不足時にエラーが報告される" do
+    report = assert_error_reported(InventoryError) do
+      OrderService.create!(out_of_stock_item)
+    end
+    assert_equal :error, report.severity
+  end
+end
 
+# RSpec（コミュニティマッチャ利用例。Rails 標準には含まれません）
 RSpec.describe OrderService do
   it "在庫不足時にエラーが報告される" do
-    subscriber = ActiveSupport::ErrorReporter::TestHelper
-    # Rails 7.1+のassert_error_reported相当
     expect {
       OrderService.create!(out_of_stock_item)
     }.to have_reported_error(InventoryError)

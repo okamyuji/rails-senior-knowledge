@@ -105,10 +105,11 @@ module AsNotifications
     # 主要な属性:
     # - name:       イベント名
     # - payload:    任意のデータを格納するハッシュ
-    # - time:       イベント開始時刻（Time オブジェクト）
-    # - end:        イベント終了時刻（Time オブジェクト）
-    # - duration:   所要時間（ミリ秒）
+    # - time:       イベント開始時刻（Float秒。単一引数 |event| 形式は常にモノトニック秒）
+    # - end:        イベント終了時刻（Float秒。time と同じ時計種別）
+    # - duration:   所要時間（ミリ秒。Float）
     # - transaction_id: イベントのユニークID
+    # 注: 内部ストレージはミリ秒だが、#time / #end は 1000.0 で割って秒として返す。
     def self.demonstrate_event_attributes
       event_data = nil
 
@@ -120,7 +121,9 @@ module AsNotifications
           duration_positive: event.duration >= 0,
           has_transaction_id: !event.transaction_id.nil?,
           payload_keys: event.payload.keys.sort,
-          # ActiveSupport 8.x では time/end はモノトニック時計のFloat値
+          # ActiveSupport 8.x では time/end は Float秒（単一引数 |event| 形式は
+          # 内部で Process.clock_gettime(MONOTONIC, :float_millisecond) を使い、
+          # getter で 1000.0 で割って秒として返す）
           time_is_numeric: event.time.is_a?(Numeric),
           end_is_numeric: event.end.is_a?(Numeric),
           end_after_start: event.end >= event.time
@@ -174,8 +177,13 @@ module AsNotifications
     # - 壁時計: NTPによる時刻補正の影響を受ける（巻き戻りの可能性あり）
     # - モノトニック時計: 常に単調増加し、システム時刻の変更に影響されない
     #
-    # ActiveSupport::Notifications::Event#duration はモノトニック時計ベースで
-    # 計算されるため、正確な経過時間を得られる。
+    # Event#duration の時計種別:
+    # - 単一引数 |event| 形式の subscribe: EventObject 経路で Event#start! が
+    #   Process.clock_gettime(MONOTONIC, :float_millisecond) を使う → モノトニック
+    # - 5引数 |*args| 形式の通常 subscribe + Event.new(*args): Time.now ベース
+    #   の壁時計（duration = (finish.to_f - start.to_f) * 1000）
+    # - monotonic_subscribe: いずれの形式でもモノトニック
+    # 正確な経過時間が必要なら単一引数形式または monotonic_subscribe を使う。
     def self.demonstrate_monotonic_clock
       # モノトニック時計の基本的な使い方
       mono_start = Process.clock_gettime(Process::CLOCK_MONOTONIC)

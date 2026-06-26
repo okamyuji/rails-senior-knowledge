@@ -820,11 +820,14 @@ module ErrorHandling
 
     # エラーを報告しつつ処理を続行する（非致命的エラー向け）
     # Rails 7.0+ の Rails.error.handle に相当
+    # NOTE: 実際の Rails の `Rails.error.handle` は fallback を callable として
+    # 扱う（`fallback.call if fallback`）。本実装では教育目的の簡略化として
+    # callable / 値の両方を受け付けるようにしている。
     def handle(fallback: nil, severity: :warning, context: {})
       yield
     rescue StandardError => e
       report(e, severity: severity, context: context)
-      fallback
+      fallback.respond_to?(:call) ? fallback.call : fallback
     end
 
     # エラーを報告しつつ例外を再 raise する（致命的エラー向け）

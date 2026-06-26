@@ -44,35 +44,49 @@ end
 | 属性 | 型 | 説明
 | ------ | ------ | ------
 | `name` | String | イベント名です（例: "sql.active_record"）
-| `time` | Float | イベント開始時刻です（通常`subscribe`では壁時計、`monotonic: true`ではモノトニック時計のミリ秒値）
-| `end` | Float | イベント終了時刻です（`time`と同じ時計種別）
-| `duration` | Float | 所要時間をミリ秒で表します（`@end - @time`）
+| `time` | Float | イベント開始時刻です（**Float秒**。通常subscribeは壁時計epoch秒、monotonic_subscribeはモノトニック秒。単一引数 `\|event\|` 形式は常にモノトニック秒）
+| `end` | Float | イベント終了時刻です（`time`と同じ時計種別・単位）
+| `duration` | Float | 所要時間（**ミリ秒**）。`@end - @time`（内部はms保持）
 | `transaction_id` | String | ユニークなトランザクションIDです
 | `payload` | Hash | イベントに付随する任意のデータです
 
+> 注: `time` と `end` は秒、`duration` はミリ秒です（単位が異なります）。Rails 8.1 / ActiveSupport 8.1 でも内部ストレージはミリ秒ですが、`#time` / `#end` のゲッタが 1000.0 で割って秒として返します（`activesupport/lib/active_support/notifications/instrumenter.rb` の `Event#time`）。
+
 ### 通常subscribe vs monotonic subscribe
 
-`ActiveSupport::Notifications.subscribe` には2つの計測モードがあり、`Event#time` / `Event#end` の意味が変わります。
+ActiveSupport::Notifications には2つの計測モードがあり、5引数形式 `|name, start, finish, id, payload|` の `start` / `finish` の型と、内部の時計種別が変わります。**最上位の `subscribe` は `monotonic:` キーワードを受け取りません**（受け取るのは下位の `Fanout#subscribe` と `subscribed(callback, pattern, monotonic:)` のみ）。
 
 ```ruby
 
-# 1. 通常モード（デフォルト）: Time.now ベースの壁時計
-ActiveSupport::Notifications.subscribe("sql.active_record") do |event|
-  event.time  # => 壁時計のepochミリ秒（例: 1719450000123.456）
-  event.end   # => 壁時計のepochミリ秒
-  # → ログのタイムスタンプ表示などに使う
+# 1. 通常モード（壁時計、デフォルト）
+# 5引数: start / finish は Time オブジェクト
+ActiveSupport::Notifications.subscribe("sql.active_record") do |name, start, finish, id, payload|
+  start.class    # => Time
+  finish.class   # => Time
 end
 
-# 2. monotonic モード: Process::CLOCK_MONOTONIC ベース
-ActiveSupport::Notifications.subscribe("sql.active_record", monotonic: true) do |event|
-  event.time  # => モノトニック時計のミリ秒（例: 9876543.21）
-  event.end   # => モノトニック時計のミリ秒
-  # → NTP補正の影響を受けない正確な経過時間計測に使う
+# 単一引数 |event| 形式は EventObject サブスクライバとなり、内部で
+# Process.clock_gettime(MONOTONIC, :float_millisecond) を使うため、`event.time` は
+# 常にモノトニック秒（Float）です。
+ActiveSupport::Notifications.subscribe("sql.active_record") do |event|
+  event.time     # => Float (モノトニック秒)
+  event.duration # => Float (ミリ秒)
+end
+
+# 2. monotonic_subscribe（モノトニック時計）
+# 5引数: start / finish は Float モノトニック秒
+ActiveSupport::Notifications.monotonic_subscribe("sql.active_record") do |name, start, finish, id, payload|
+  start.class    # => Float
+end
+
+# 単一引数 |event| 形式でも当然モノトニック秒が得られます
+ActiveSupport::Notifications.monotonic_subscribe("sql.active_record") do |event|
+  event.time     # => Float (モノトニック秒)
 end
 
 ```
 
-`duration` は常に `@end - @time` で計算されるため、どちらのモードでも正しい経過ミリ秒が得られます。ただし `time` を「実際に起きた絶対時刻」として記録したいログ系では通常モード、タイマー類の経過時間記録ではmonotonicモードを選びます。
+`duration` は常にミリ秒で得られます（Event内部はミリ秒で保持されており、getter `#time` / `#end` のみ秒に変換します）。`time` を「実際に起きた絶対時刻」として記録したいログ系では通常モード5引数形式、タイマー類の経過時間記録では `monotonic_subscribe` を選びます。
 
 ```ruby
 

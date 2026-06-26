@@ -5,7 +5,7 @@
 YJIT（Yet Another JIT）は、Ruby 3.1で実験的に導入され、Ruby
 3.2で正式リリースされたJITコンパイラです。Shopifyのチームによって開発され、CRubyのインタプリタに直接組み込まれています。
 
-Ruby 3.3以降ではproduction-readyと宣言された推奨JITコンパイラですが、デフォルトでは無効です（`--yjit`オプションまたは`RUBY_YJIT_ENABLE=1`環境変数で有効化）。Rails 8ではYJITの有効化が公式に推奨されており、`rails new`で生成されるDockerfileにも有効化設定が含まれます。なお、Ruby 3.3でMJITは削除されRJITに置き換えられ、Ruby 3.4ではYJITが大幅に高速化・省メモリ化されています。
+Ruby 3.2でexperimentalから卒業しproduction-readyと宣言された推奨JITコンパイラですが、デフォルトでは無効です（`--yjit`オプションまたは`RUBY_YJIT_ENABLE=1`環境変数で有効化）。Ruby 3.3以降でさらに性能が改善され、Rails 8ではYJITの有効化が公式に推奨されており、`rails new`で生成されるDockerfileにも有効化設定が含まれます。なお、MJITはRuby 3.2でRJIT（pure-Ruby実装）に置き換えられた後、Ruby 3.3で旧MJITが完全に削除されました。Ruby 3.4ではYJITが大幅に高速化・省メモリ化されています。
 
 ## YJITの仕組み（Lazy Basic Block Versioning）
 
@@ -117,9 +117,11 @@ end
 
 ruby --yjit --yjit-mem-size=256 app.rb
 
-# 旧オプション（実行可能メモリブロックのみを制限、デフォルト: 64MiB）
+# 旧オプション（実行可能メモリブロックのみを制限）
 
-# Ruby 3.4でもサポートされるが --yjit-mem-size の使用を推奨
+# Ruby 3.2では64MiB、Ruby 3.3.1では48MiBがデフォルトだったが、Ruby 3.4ではデフォルト未指定（None）になり
+
+# 明示指定しない限り --yjit-mem-size 側の予算でのみ制御される。--yjit-mem-size の使用を推奨
 
 ruby --yjit --yjit-exec-mem-size=128 app.rb
 

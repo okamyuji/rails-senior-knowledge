@@ -143,7 +143,8 @@ RSpec.describe QueryPlanAnalysis do
     it 'スロークエリ対策の戦略情報が提供されることを確認する' do
       strategies = result[:slow_query_strategies]
       expect(strategies).to have_key('ActiveSupport::Notifications')
-      expect(strategies).to have_key('Query Log Tags (Rails 7+)')
+      expect(strategies).to have_key('Query Log Tags (Rails 7.0+)')
+      expect(strategies).to have_key('Relation#annotate (Rails 6.0+)')
       expect(strategies).to have_key('APMツール')
     end
   end

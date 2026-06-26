@@ -329,10 +329,13 @@ module AuthenticationGenerator
         return { success: false, error: 'ログイン試行回数が上限を超えました。しばらくお待ちください。' }
       end
 
+      # ※ 教育目的の簡易実装: 本来は Rails 7.1+ の `User.authenticate_by(email_address:, password:)`
+      # を使うべき。authenticate_by は識別子で見つからなかった場合も `User.new(password: ...)`
+      # でダミーの BCrypt 計算を走らせて応答時間を均すため、ユーザー列挙のタイミング差を隠蔽できる。
+      # 下のコードはユーザー存在チェックで早期 return しているため、未登録メールでは
+      # 認証成功時よりも有意に速く応答が返る（=ユーザー列挙が可能）点に注意。
       user = User.find_by(email_address: email&.strip&.downcase)
 
-      # ユーザーが存在しない場合もタイミング攻撃を防ぐため
-      # BCrypt の比較を実行する（一定時間を消費する）
       unless user&.authenticate(password)
         # has_secure_password の authenticate メソッドは
         # パスワードが正しければ user を、間違っていれば false を返す

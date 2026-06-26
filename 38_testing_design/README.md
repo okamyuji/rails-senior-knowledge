@@ -256,7 +256,9 @@ test`（Rails 5.2+）が標準で、`bin/rails test:system` や `bin/rails test 
 # test/test_helper.rb
 
 class ActiveSupport::TestCase
-  # ワーカー数を CPU コア数に合わせる。:threads でスレッド並列も選べます。
+  # ワーカー数を CPU コア数に合わせる。デフォルトは fork ベースのプロセス並列。
+  # スレッド並列を使う場合は `parallelize(workers: ..., with: :threads)` を指定する
+  # （JRuby やフォークできない環境向け。ただし parallelize_setup フックは利用不可）。
   parallelize(workers: :number_of_processors)
 
   # プロセス並列化時のフック

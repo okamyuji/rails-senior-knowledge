@@ -136,7 +136,9 @@ Fiber[:request_id] = "abc123"
 
 # 2. Thread.current[:key]: 実はFiberローカル（他のFiberからは見えない）
 
-#    歴史的経緯でThread上にあるが、Ruby 3.xではFiberスコープで動作する
+#    歴史的経緯でThreadクラス上にAPIがあるが、Ruby 1.9でFiberが導入されて以降は
+
+#    Fiberスコープで動作する仕様（Ruby 3.xで新しく追加された挙動ではない）
 
 Thread.current[:local_data] = data
 

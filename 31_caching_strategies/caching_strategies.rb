@@ -615,7 +615,12 @@ module CachingStrategies
         updated_at: now
       }
 
-      single_cache_key = "#{model[:class_name].downcase.tr('::', '/')}s/#{model[:id]}"
+      # NOTE: 実際の ActiveRecord は ActiveModel::Naming + ActiveSupport::Inflector で
+      # ネームスペース分離・複数形化を行う（例: Admin::User → "admin/users"）。
+      # ここでは概念再現のため gsub による単純な置換 + 末尾 's' で近似する。
+      # `String#tr('::', '/')` は文字単位置換のため "Admin::User" → "Admin//User" となる罠があるので
+      # ここでは `gsub` を使用する。
+      single_cache_key = "#{model[:class_name].downcase.gsub('::', '/')}s/#{model[:id]}"
       single_cache_version = now.utc.to_fs(:usec)
 
       # コレクションのキャッシュキー

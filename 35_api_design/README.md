@@ -156,7 +156,9 @@ end
 
 class Api::V1::UsersController < ApplicationController
   def index
-    limit = [params.fetch(:limit, 20).to_i, 100].min
+    # CursorPaginator と同様に limit も上下限の両方を clamp する。
+    # `?limit=0` で空配列、`?limit=-1` で SQL エラーを生むのを避ける。
+    limit = params.fetch(:limit, 20).to_i.clamp(1, 100)
     after = params[:after] # カーソル値（前ページの最後のID）
 
     scope = User.order(:id).limit(limit + 1) # +1で次ページの有無を判定します

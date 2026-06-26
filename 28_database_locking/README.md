@@ -261,6 +261,7 @@ end
 #   adapter: postgresql
 #   variables:
 #     lock_timeout: "5s"
+```
 
 ### 防止策3: リトライパターン
 

@@ -427,7 +427,7 @@ module RailsBootProcess
   #   - YAML ファイルのパース結果をキャッシュ
   #   - Rails 5.2 以降はデフォルトで有効
   #
-  # (b) Spring（Rails 7.1 でデフォルトから除外）:
+  # (b) Spring（Rails 7.0 でデフォルト Gemfile から除外、PR rails/rails#42997）:
   #   - アプリケーションプロセスをバックグラウンドで維持するプリローダー
   #   - rails console, rails test などのコマンド起動を高速化
   #   - ファイル変更を検知して自動リロード

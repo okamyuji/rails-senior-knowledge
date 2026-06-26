@@ -198,7 +198,7 @@ end
 
 ```
 
-### 2. Query Log Tags（Rails 7+）
+### 2. Query Log Tags（Rails 7.0+）
 
 ```ruby
 

@@ -374,7 +374,7 @@ bin/rails routes -c users
 
 bin/rails routes -g /users/42
 
-# 未使用ルートを検出します（Rails 8.0+）
+# 未使用ルートを検出します（Rails 7.1+）
 
 bin/rails routes --unused
 

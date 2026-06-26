@@ -77,9 +77,11 @@ Record.find_each(start: 10001, finish: 20000) do |record|
 end
 
 # Rails 8.0+: cursor で任意の列、order で方向を指定できます
-# （主キー以外をカーソル列に使う API。PR #51481 が Rails 8.0 で取り込まれた）
+# （主キー以外をカーソル列に使う API。Rails 8.0 で導入）
+# 注意: cursor 列は重複・更新されないユニーク列が原則。
+# 非ユニーク列を使うとレコードの取りこぼし・重複の可能性があります。
 
-Record.find_each(cursor: :created_at, order: :desc) do |record|
+Record.find_each(cursor: [:shop_id, :id], order: :asc) do |record|
   process(record)
 end
 

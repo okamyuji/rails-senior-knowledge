@@ -305,6 +305,8 @@ module RefinementsDemo
   # - Object#method / Module#instance_method が Refined メソッドを返すようになった（Ruby 2.7+）
   # - Module#refinements / Module.used_refinements / Refinement#refined_class が
   #   内省用APIとして追加された（Ruby 3.2+）
+  # - Ruby 3.3 で Refinement#refined_class は Refinement#target に改名（refined_classはdeprecated）
+  # - Ruby 3.4 で Refinement#refined_class は削除（targetのみ利用可能）
   #
   # Ruby 3.4 では上記すべてが期待通りに動作するため、本デモも問題なく成功する。
   # Ruby 2.5 以前との互換性が必要な場合は注意が必要。
