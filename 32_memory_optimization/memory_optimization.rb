@@ -301,6 +301,14 @@ module MemoryOptimization
   # RUBY_GC_HEAP_OLDOBJECT_LIMIT_FACTOR
   #   旧世代オブジェクト数に基づくメジャーGCトリガー係数。
   #
+  # ※ Ruby 3.3+ は Variable Width Allocation (VWA) によりヒープページの
+  #    内部構造が拡張されており、heap_live_slots等の統計が反映する対象も
+  #    可変サイズスロットを含む。本番チューニングではRuby 3.4の挙動で再計測する。
+  #
+  # ※ GC.compact (Ruby 2.7+) は手動でヒープのコンパクションを実行する。
+  #    Ruby 3.0+ では auto-compaction (GC.auto_compact = true) も利用可能で、
+  #    Pumaフォーク前にGC.compactを呼ぶことでCoW（Copy-on-Write）効率を高められる。
+  #
   # @return [Hash] GCチューニング環境変数の一覧・現在値・推奨値
   def gc_tuning_variables
     tuning_vars = {

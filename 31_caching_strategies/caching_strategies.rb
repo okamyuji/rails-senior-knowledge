@@ -179,9 +179,10 @@ module CachingStrategies
 
     # fetchの条件付きキャッシュ（skip_nil）
     #
-    # Rails 7.1+ では skip_nil: true を指定すると、
+    # skip_nil: true を指定すると、
     # ブロックがnilを返した場合にキャッシュへの書き込みをスキップする。
     # これにより、一時的な障害でnilが返された場合にキャッシュが汚染されるのを防ぐ。
+    # ActiveSupport::Cache::Store#fetch の組み込みオプション。
     #
     # @return [Hash] skip_nilの動作結果
     def self.demonstrate_fetch_skip_nil
@@ -614,7 +615,12 @@ module CachingStrategies
         updated_at: now
       }
 
-      single_cache_key = "#{model[:class_name].downcase.tr('::', '/')}s/#{model[:id]}"
+      # NOTE: 実際の ActiveRecord は ActiveModel::Naming + ActiveSupport::Inflector で
+      # ネームスペース分離・複数形化を行う（例: Admin::User → "admin/users"）。
+      # ここでは概念再現のため gsub による単純な置換 + 末尾 's' で近似する。
+      # `String#tr('::', '/')` は文字単位置換のため "Admin::User" → "Admin//User" となる罠があるので
+      # ここでは `gsub` を使用する。
+      single_cache_key = "#{model[:class_name].downcase.gsub('::', '/')}s/#{model[:id]}"
       single_cache_version = now.utc.to_fs(:usec)
 
       # コレクションのキャッシュキー

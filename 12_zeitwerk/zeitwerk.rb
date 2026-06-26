@@ -13,11 +13,14 @@ module ZeitwerkAutoloader
   module NamingConvention
     # Zeitwerkの命名規約のコア: ファイルパスを定数名に変換する
     #
-    # 規約:
+    # 規約（Zeitwerkの**純粋な**path-to-constantマッピングのみを示す。
+    # Railsのapp/{models,controllers}/concerns はネストrootとして別途登録される
+    # ため、`app/models/concerns/foo.rb` は実際には `Concerns::Foo` ではなく
+    # `Foo` になる。これは以下の基本ルールの上に乗る Rails 側の設定）:
     #   user.rb           → User
     #   user_profile.rb   → UserProfile
     #   html_parser.rb    → HtmlParser (デフォルト、カスタムinflectionで HTMLParser も可)
-    #   concerns/fooable.rb → Concerns::Fooable
+    #   concerns/fooable.rb → Concerns::Fooable  （rootが concerns の親の場合）
     #   api/v1/users.rb  → Api::V1::Users
     #
     # Zeitwerkはこの変換にString#camelizeに相当する処理を使う。
@@ -136,9 +139,14 @@ module ZeitwerkAutoloader
       # 例: app/models/user.rb の場合
       #   Object.autoload(:User, "app/models/user.rb")
       #
-      # 例: app/models/concerns/searchable.rb の場合
-      #   まず Concerns モジュールを設定し、
-      #   Concerns.autoload(:Searchable, "app/models/concerns/searchable.rb")
+      # 例: lib/myapp/foo.rb の場合（plain Zeitwerk）
+      #   まず Myapp モジュールを設定し、
+      #   Myapp.autoload(:Foo, "lib/myapp/foo.rb")
+      #
+      # 注意: Rails では app/{models,controllers}/concerns 自体が
+      # Zeitwerk のネストしたルートディレクトリとして扱われるため、
+      # `app/models/concerns/searchable.rb` は `Concerns::Searchable` ではなく
+      # `Searchable` として直接 Object 配下に autoload される。
 
       steps = [
         '1. Zeitwerk::Loader.new でローダーインスタンスを作成',
@@ -214,8 +222,10 @@ module ZeitwerkAutoloader
         },
         collapse: {
           method: 'loader.collapse(dir)',
-          description: 'ディレクトリを名前空間として扱わない（フラット化）',
-          example: 'loader.collapse("app/models/concerns")'
+          description: 'ディレクトリを名前空間として扱わない（フラット化）。Rails の ' \
+                       'app/{models,controllers}/concerns は collapse ではなく ' \
+                       'ネストrootで処理される点に注意',
+          example: 'loader.collapse("lib/myapp/shared")'
         }
       }
     end
@@ -706,23 +716,29 @@ module ZeitwerkAutoloader
     end
 
     # collapseディレクティブの活用例を説明する
+    # 注意: Railsの app/{models,controllers}/concerns は collapse ではなく
+    # 「ネストしたルートディレクトリ」として独立rootに登録されている。
+    # collapse は plain な Zeitwerk 構成（gem / lib 配下）で、中間ディレクトリを
+    # 名前空間にしたくない場合に使う。
     def self.explain_collapse
       {
         purpose: 'ディレクトリを名前空間にマッピングしないようにする',
         example: {
           without_collapse: {
-            structure: 'app/models/concerns/searchable.rb',
-            constant: 'Concerns::Searchable',
-            problem: 'Concernsモジュールは不要な名前空間'
+            structure: 'lib/myapp/shared/foo.rb',
+            constant: 'Myapp::Shared::Foo',
+            problem: 'Sharedモジュールは不要な中間名前空間'
           },
           with_collapse: {
-            code: 'loader.collapse("app/models/concerns")',
-            structure: 'app/models/concerns/searchable.rb',
-            constant: 'Searchable',
-            benefit: '不要な名前空間を排除してフラットにアクセスできる'
+            code: 'loader.collapse("lib/myapp/shared")',
+            structure: 'lib/myapp/shared/foo.rb',
+            constant: 'Myapp::Foo',
+            benefit: '不要な中間名前空間を排除してフラットにアクセスできる'
           }
         },
-        rails_default: 'Railsではconcernsディレクトリはデフォルトでcollapseされる'
+        rails_concerns: 'Rails の app/{models,controllers}/concerns は collapse ではなく、 ' \
+                        'Zeitwerk のネストしたルートディレクトリ機能で独立rootとして登録される。 ' \
+                        '`app/models/concerns/sluggable.rb` は `Sluggable` として定義される'
       }
     end
   end

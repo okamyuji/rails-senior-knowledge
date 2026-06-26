@@ -86,7 +86,14 @@ conditions = []
 # パラメータが存在する場合のみ条件を追加します
 
 conditions << users[:age].gteq(params[:min_age]) if params[:min_age]
-conditions << users[:name].matches("%#{params[:keyword]}%") if params[:keyword]
+# LIKEワイルドカード（`%` `_`）をユーザー入力に含めるとそのままパターンとして
+# 解釈され、`%admin%` のような入力で意図しないレコードがマッチしてしまう。
+# ActiveRecord::Base.sanitize_sql_like で `%`/`_` をエスケープし、
+# Arel#matches の `escape:` オプションでエスケープ文字を明示する。
+if params[:keyword]
+  escaped = ActiveRecord::Base.sanitize_sql_like(params[:keyword])
+  conditions << users[:name].matches("%#{escaped}%", '\\')
+end
 conditions << users[:email].not_eq(nil) if params[:email_required]
 
 # reduceで全条件をAND結合します

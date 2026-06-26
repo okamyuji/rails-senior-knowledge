@@ -126,7 +126,10 @@ module Sluggable
 
   included do
     class_attribute :slug_source, default: :name
-    before_validation :generate_slug, if: :slug_source_changed?
+    # class_attribute は ActiveRecord の dirty tracking 対象外なので
+    # `slug_source_changed?` は存在しない。判定は「slug_source が指す
+    # 実カラム（例: name）が変更されたか」で行う。
+    before_validation :generate_slug, if: :slug_source_attribute_changed?
   end
 
   class_methods do
@@ -144,6 +147,12 @@ module Sluggable
   end
 
   private
+
+  # ActiveModel::Dirty が提供する <attr>_changed? を slug_source の指す
+  # カラム名に対して動的に呼び出す。
+  def slug_source_attribute_changed?
+    public_send("#{self.class.slug_source}_changed?")
+  end
 
   def generate_slug
     source = send(self.class.slug_source)

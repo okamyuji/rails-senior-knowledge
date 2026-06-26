@@ -31,9 +31,11 @@ Solid CacheはRails
 │  SolidCache::    │
 │  Store           │
 │                  │
-│  - キー正規化     │  キーをSHA256でハッシュ化します
+│  - key_hash 計算  │  生キーをそのまま保存しつつ、検索用に
+│                  │  SHA-256 を取り、先頭8バイトを符号付き64bit整数として
+│                  │  解釈した値（`unpack("q>").first`）を使います
 │  - シリアライズ   │  MarshalまたはJSONを使用します
-│  - シャード選定   │  キーハッシュでシャードを決定します
+│  - シャード選定   │  key_hash でシャードを決定します
 └────────┬─────────┘
          │
     ┌────┴────┐
@@ -53,13 +55,14 @@ Solid Cacheは `solid_cache_entries` テーブルを使用します。
 
 CREATE TABLE solid_cache_entries (
   id         BIGINT PRIMARY KEY AUTO_INCREMENT,
-  key        VARCHAR(1024) NOT NULL,     -- SHA256ハッシュ化されたキー
+  key        BLOB NOT NULL,              -- 生のキャッシュキー（バイナリ、最大1024バイト）
   value      BLOB NOT NULL,              -- シリアライズされた値（最大512MB）
+  created_at DATETIME(6) NOT NULL,       -- 作成日時（FIFOの基準）
+  key_hash   BIGINT NOT NULL,            -- キーの64bitハッシュ（インデックス用）
   byte_size  INTEGER NOT NULL,           -- エントリ全体のバイトサイズ
-  created_at DATETIME NOT NULL,          -- 作成日時（FIFOの基準）
 
-  UNIQUE INDEX (key),
-  INDEX (key, byte_size),
+  UNIQUE INDEX (key_hash),
+  INDEX (key_hash, byte_size),
   INDEX (byte_size)
 );
 
@@ -68,8 +71,10 @@ CREATE TABLE solid_cache_entries (
 重要な設計上の特徴は以下の通りです。
 
 - `updated_at` カラムが存在しません。FIFOではアクセス時のタイムスタンプ更新が不要なためです
-- `key` はハッシュ化されています。任意長のキーを固定長（48バイト）に正規化してインデックス効率を向上させています
+- 検索用インデックスは可変長の `key` ではなく、固定長の `key_hash`（8バイトのbigint）に張られます。これにより任意長のキーに対してインデックス効率を確保しています。`key_hash` は `Digest::SHA256.digest(key).unpack("q>").first` で算出される、SHA-256 の先頭8バイトを符号付き64bit整数として解釈した値です（gem 1.0系の `SolidCache::Entry#key_hash_for`）
 - `byte_size` を記録しています。エビクション判断を高速に行うためのメタデータです
+
+なお本リポジトリの教育用実装 (`solid_cache.rb`) では概念を分かりやすくするため、`key_hash` を分離せず `key` カラムに SHA-256 ハッシュ（接頭辞付き 48 文字）を入れる簡略形にしています。
 
 ### キャッシュエントリのライフサイクル
 
@@ -77,9 +82,9 @@ CREATE TABLE solid_cache_entries (
 
 書き込み (write)
   │
-  ├─ キー正規化 (SHA256)
+  ├─ key_hash 算出 (SHA-256 → 先頭8バイト → signed int64)
   ├─ 値シリアライズ (Marshal.dump)
-  ├─ UPSERT実行
+  ├─ UPSERT実行 (key_hash UNIQUE で同一キーを更新)
   └─ エビクション判定
        │
        ├─ サイズ超過なし → 完了
@@ -88,14 +93,16 @@ CREATE TABLE solid_cache_entries (
 
 読み取り (read)
   │
-  ├─ キー正規化 (SHA256)
-  ├─ SELECT実行
+  ├─ key_hash 算出 (SHA-256 → 先頭8バイト → signed int64)
+  ├─ SELECT (WHERE key_hash = ? AND key = ?)
   ├─ TTL期限切れチェック
   │   ├─ 期限内 → デシリアライズして返します
   │   └─ 期限切れ → 遅延削除し、nilを返します
   └─ ヒットしない → nilを返します
 
 ```
+
+`key_hash` は検索用インデックスのキーであり、生キーそのものを置き換えるものではありません。`key` カラムには元のキーがそのまま保存され、SELECT時には `key_hash` でインデックスを引いた後、衝突を排除するために `key` も比較されます。本リポジトリの教育用 `.rb` 実装では概念単純化のため両者をまとめてしまっており、本物のSolid Cacheとは構造が異なる点に注意してください。
 
 ## FIFOとLRUの比較
 

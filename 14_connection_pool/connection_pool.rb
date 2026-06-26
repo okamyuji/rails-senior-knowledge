@@ -244,7 +244,9 @@ module ConnectionPoolInternals
     #   Pumaのスレッド数以上に設定する必要がある
     # - checkout_timeout: 接続取得の最大待機時間（デフォルト: 5秒）
     # - idle_timeout: アイドル接続の最大保持時間（デフォルト: 300秒）
-    # - reaping_frequency: リーパーの実行間隔（デフォルト: 60秒）
+    # - reaping_frequency: リーパーの実行間隔
+    #   Rails 8.1: デフォルト 20秒（[20, idle_timeout, max_age, keepalive].compact.min）
+    #   Rails 7.x まで: 60秒
     def self.demonstrate_configuration
       pool = ActiveRecord::Base.connection_pool
       db_config = pool.db_config
@@ -438,7 +440,7 @@ module ConnectionPoolInternals
         flush_description: 'idle_timeout秒以上使われていない接続を切断する',
         # 設定値
         configuration: {
-          reaping_frequency: 'デフォルト60秒ごとにリーパーが実行される',
+          reaping_frequency: 'Rails 8.1ではデフォルト20秒ごと（Rails 7.xまでは60秒）にリーパーが実行される',
           idle_timeout: 'デフォルト300秒（5分）でアイドル接続を切断'
         }
       }

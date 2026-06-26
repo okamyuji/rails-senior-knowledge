@@ -13,14 +13,18 @@
 # ============================================================================
 #
 # --yjit                  : YJITを有効化
-# --yjit-exec-mem-size=N  : 実行可能メモリサイズ（MB単位、デフォルト: 48MB）
-# --yjit-call-threshold=N : メソッドをコンパイルするまでの呼び出し回数（デフォルト: 30）
+# --yjit-mem-size=N       : YJITメモリ全体の上限（MiB単位、デフォルト: 128MiB、Ruby 3.4で追加）
+# --yjit-exec-mem-size=N  : 実行可能メモリブロックのハードリミット（旧オプション、Ruby 3.4ではデフォルト未指定）
+#                           Ruby 3.2 では 64MiB、Ruby 3.3.1 では 48MiB がデフォルトだった
+# --yjit-call-threshold=N : メソッドをコンパイルするまでの呼び出し回数（デフォルト: 30、
+#                           ISEQ数が40000を超えると自動で120に増加）
 # --yjit-stats            : YJIT統計情報を有効化（パフォーマンス計測用）
-# --yjit-log              : YJITのログ出力を有効化（Ruby 3.4+）
+# --yjit-log              : YJITのコンパイル活動をログ出力（Ruby 3.4+）
+# --yjit-disable          : Ruby起動時はYJITを無効化、RubyVM::YJIT.enableで遅延有効化（Ruby 3.3+）
 #
 # 本番環境での推奨設定例:
-#   RUBY_YJIT_ENABLE=1 （環境変数による有効化、Ruby 3.3+）
-#   ruby --yjit --yjit-exec-mem-size=128 app.rb
+#   RUBY_YJIT_ENABLE=1 （環境変数による有効化、Ruby 3.2+）
+#   ruby --yjit --yjit-mem-size=256 app.rb
 #
 # ============================================================================
 # Lazy Basic Block Versioning (LBBV) の仕組み

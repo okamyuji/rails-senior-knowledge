@@ -503,9 +503,11 @@ module SolidQueueInternals
   # Solid Queue はセマフォを使って特定キーの同時実行数を制限できる。
   # 例: 同じユーザーに対する課金処理は同時に1つだけ実行したい場合
   #
-  # ActiveJob 側の設定例:
+  # ActiveJob 側の設定例（solid_queue 1.3 の `limits_concurrency` は `key:` 必須、
+  # `to:` のデフォルトは 1、`group:` で他ジョブとセマフォを共有、`duration:` で
+  # ブロック上限時間、`on_conflict:` で :block / :discard を指定可能）:
   #   class BillingJob < ApplicationJob
-  #     limits_concurrency to: 1, key: ->(user_id) { "billing_user_#{user_id}" }
+  #     limits_concurrency key: ->(user_id) { "billing_user_#{user_id}" }, to: 1
   #   end
   #
   # セマフォの動作:
@@ -567,7 +569,7 @@ module SolidQueueInternals
   #
   # Solid Queue のワーカーは定期的にデータベースをポーリングしてジョブを取得する。
   #
-  # 設定例（config/solid_queue.yml）:
+  # 設定例（config/queue.yml）:
   #   production:
   #     dispatchers:
   #       - polling_interval: 1    # 1秒ごとにポーリング

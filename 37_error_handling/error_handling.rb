@@ -746,8 +746,10 @@ module ErrorHandling
   # 本番アプリケーションでは、エラーを構造化して
   # 監視サービス（Sentry、Datadog、Honeybadger 等）に送る。
   #
-  # Rails 7.1+ の error.reporter を使うと、
+  # Rails 7.0+ の ActiveSupport::ErrorReporter（Rails.error）を使うと、
   # アプリケーション全体で統一的なエラー報告が可能になる。
+  # Rails 8.1 では、エラー以外のテレメトリ向けに ActiveSupport::EventReporter
+  # （Rails.event）が追加され、構造化イベントを発行できる。
   def demonstrate_error_reporting_integration
     # エラー報告サービスのシンプルなシミュレーション
     reporter = ErrorReporter.new
@@ -787,7 +789,7 @@ module ErrorHandling
   end
 
   # エラー報告サービスのシンプルなシミュレーション
-  # Rails 7.1+ の ActiveSupport::ErrorReporter に相当する概念
+  # Rails 7.0+ の ActiveSupport::ErrorReporter に相当する概念
   class ErrorReporter
     attr_reader :reports
 
@@ -817,16 +819,19 @@ module ErrorHandling
     end
 
     # エラーを報告しつつ処理を続行する（非致命的エラー向け）
-    # Rails 7.1+ の Rails.error.handle に相当
+    # Rails 7.0+ の Rails.error.handle に相当
+    # NOTE: 実際の Rails の `Rails.error.handle` は fallback を callable として
+    # 扱う（`fallback.call if fallback`）。本実装では教育目的の簡略化として
+    # callable / 値の両方を受け付けるようにしている。
     def handle(fallback: nil, severity: :warning, context: {})
       yield
     rescue StandardError => e
       report(e, severity: severity, context: context)
-      fallback
+      fallback.respond_to?(:call) ? fallback.call : fallback
     end
 
     # エラーを報告しつつ例外を再 raise する（致命的エラー向け）
-    # Rails 7.1+ の Rails.error.record に相当
+    # Rails 7.0+ の Rails.error.record に相当
     def record(severity: :error, context: {})
       yield
     rescue StandardError => e

@@ -274,19 +274,19 @@ end
 
 ## collapseディレクティブ
 
-ディレクトリを名前空間にマッピングしたくない場合に使います。
+ディレクトリを名前空間にマッピングしたくない場合に使います。Rails依存のないプレーンなZeitwerk構成では、`shared` のような中間ディレクトリは標準で `Shared::Foo` という名前空間を作りますが、`collapse` で潰せます。
 
 ```ruby
 
-# デフォルト: app/models/concerns/searchable.rb → Concerns::Searchable
+# プレーンなZeitwerk: lib/myapp/shared/foo.rb → Myapp::Shared::Foo
 
-# collapse後: app/models/concerns/searchable.rb → Searchable
+# collapse後: lib/myapp/shared/foo.rb → Myapp::Foo
 
-loader.collapse("#{__dir__}/models/concerns")
+loader.collapse("#{__dir__}/myapp/shared")
 
 ```
 
-Railsでは `concerns` ディレクトリはデフォルトでcollapseされています。
+⚠ **Rails の `app/{models,controllers}/concerns` には collapse ではなく別の仕組み（ネストしたルートディレクトリ）が使われています**。Railsは `app/models/concerns` 自体を独立したrootとして `Rails.autoloaders.main` に登録するため、`app/models/concerns/sluggable.rb` は `Concerns::Sluggable` ではなく `Sluggable` として定義されます。Rails標準の `concerns` 以外で同様の効果を得たい場合のみ `collapse` を使います（例: `loader.collapse("#{Rails.root}/app/models/shared")`）。
 
 ## 実行方法
 

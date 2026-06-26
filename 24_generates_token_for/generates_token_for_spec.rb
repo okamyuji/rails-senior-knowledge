@@ -7,11 +7,14 @@ RSpec.describe GeneratesTokenFor do
   # --------------------------------------------------------------------------
   # テスト用ヘルパー: ユーザー作成
   # --------------------------------------------------------------------------
-  def create_user(email: 'test@example.com', password: 'secure_password_123', email_confirmed: false)
+  # plaintext キーワード引数の値は has_secure_password の password= を経由して
+  # BCrypt でハッシュ化された上で password_digest としてのみ保存される。
+  # 平文はメモリ上の一時値で、TokenUser テーブルには永続化されない。
+  def create_user(email: 'test@example.com', plaintext: 'secure_password_123', email_confirmed: false)
     TokenUser.create!(
       email: email,
-      password: password,
-      password_confirmation: password,
+      password: plaintext,
+      password_confirmation: plaintext,
       email_confirmed: email_confirmed
     )
   end
@@ -109,7 +112,7 @@ RSpec.describe GeneratesTokenFor do
 
   describe 'トークン無効化の直接テスト' do
     it 'パスワード変更後にパスワードリセットトークンが無効化される' do
-      user = create_user(password: 'original_pass')
+      user = create_user(plaintext: 'original_pass')
       token = user.generate_token_for(:password_reset)
 
       # 変更前は有効

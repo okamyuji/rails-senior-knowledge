@@ -87,7 +87,10 @@ class TokenUser < ActiveRecord::Base
   # トークン構造:
   #   MessageVerifier.generate([purpose, record_id, ...block_values], expires_at: ...)
   #
-  # トークンには以下が暗号化・署名されて埋め込まれる:
+  # MessageVerifier はペイロードを暗号化せず、Base64エンコードしたJSON+HMAC署名のみを行う
+  # （改ざん検出は可能だがペイロード自体は読める）。機密情報を含めてはならない。
+  #
+  # トークンには以下が署名付きで埋め込まれる:
   # - 目的（purpose）: :password_reset, :email_confirmation 等
   # - レコードID: find_by_token_for でレコードを特定するため
   # - ブロックの戻り値: トークン無効化に使用される値

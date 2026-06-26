@@ -247,10 +247,20 @@ SET innodb_lock_wait_timeout = 5;
 
 ```ruby
 
-# Railsでの設定
+# Railsでの設定（注意: PostgreSQLの SET はセッションスコープのため
+# コネクションがプールに返却されても設定が残り続け、後続の
+# 無関係なクエリにも適用されてしまう。トランザクション内で
+# SET LOCAL を使うか、操作後に RESET lock_timeout で戻すこと）
+ActiveRecord::Base.transaction do
+  ActiveRecord::Base.connection.execute("SET LOCAL lock_timeout = '5s'")
+  # ロック取得とクリティカルな処理
+end
 
-ActiveRecord::Base.connection.execute("SET lock_timeout = '5s'")
-
+# あるいは database.yml の variables: で接続時に一律設定する
+# production:
+#   adapter: postgresql
+#   variables:
+#     lock_timeout: "5s"
 ```
 
 ### 防止策3: リトライパターン
@@ -294,6 +304,11 @@ end
 
 # 在庫の減算: 悲観的ロックまたはアトミックSQLを使用します
 
+# まず数量が正の整数であることをサービス層で検証する。
+# `.to_i` 経由の文字列補間は "abc" → 0 のように静かに 0 化されてしまうため、
+# update_all へ生のユーザー入力をそのまま渡してはいけない。
+raise ArgumentError, "quantity must be a positive integer" unless quantity.is_a?(Integer) && quantity.positive?
+
 Product.transaction do
   product = Product.lock.find(product_id)
   raise "在庫不足" if product.stock < quantity
@@ -302,11 +317,14 @@ Product.transaction do
 end
 
 # またはアトミックSQL（シンプルな場合）
-
+# bind parameter を使い、CHECK 制約相当の WHERE で在庫が0未満にならないことを保証する。
 result = Product.where(id: product_id)
                 .where("stock >= ?", quantity)
-                .update_all("stock = stock - #{quantity.to_i}")
-raise "在庫不足" if result == 0
+                .update_all(["stock = stock - ?", quantity])
+raise "在庫不足" if result.zero?
+
+# 加えて、 DB 側で `CHECK (stock >= 0)` 制約を設けておけば、
+# 仕様外の経路から在庫マイナスになる事故を二重に防げる。
 
 ```
 

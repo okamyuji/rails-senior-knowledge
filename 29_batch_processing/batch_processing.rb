@@ -45,7 +45,8 @@ module BatchProcessing
   #   3. 次のバッチはWHERE id > (前バッチの最後のID) で取得
   #
   # デフォルトのbatch_sizeは1000。
-  # start / finish オプションでID範囲を指定可能。
+  # start / finish はカーソル列の値で範囲を指定する。
+  # order: :asc / :desc は Rails 7.1+、cursor: で任意の列（複合主キー対応）は Rails 8.0+ で利用可能。
   module FindEach
     # find_eachの基本的な使い方
     def self.demonstrate_basic_find_each

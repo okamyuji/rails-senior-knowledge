@@ -347,8 +347,10 @@ module QueryPlanAnalysis
   # 2. スロークエリログ（MySQL/PostgreSQL）:
   #    設定した閾値を超えるクエリを自動的にログに記録
   #
-  # 3. Query Log Tags（Rails 7+）:
-  #    クエリにアプリケーション情報（コントローラ名等）をタグ付け
+  # 3. Query Log Tags（Rails 7.0+）:
+  #    config.active_record.query_log_tags_enabled = true で全クエリに
+  #    /* application:..., controller:..., action:... */ を自動付与（7.1 から SQLCommenter 形式）。
+  #    なお Rails 6.0+ には個別クエリに手動でコメントを付ける Relation#annotate もある（別機能）。
   #
   # 4. EXPLAIN ANALYZE（PostgreSQL）:
   #    実際の実行時間と行数を含む詳細な実行計画
@@ -390,7 +392,12 @@ module QueryPlanAnalysis
       inefficient_plan: explain_to_s(inefficient_plan),
       slow_query_strategies: {
         'ActiveSupport::Notifications' => 'sql.active_recordイベントで閾値超えを検出',
-        'Query Log Tags (Rails 7+)' => "annotate('source')でクエリ発生元を特定",
+        # Rails 7.0+ の Query Log Tags は config.active_record.query_log_tags_enabled で有効化し、
+        # 全クエリに自動で /* application:..., controller:..., action:... */ を付与する。
+        # 7.1 以降は SQLCommenter 形式に準拠。
+        'Query Log Tags (Rails 7.0+)' => 'config.active_record.query_log_tags_enabled = true で全クエリに自動でタグ付与',
+        # annotate は Rails 6.0+ の Relation メソッドで、任意のクエリに手動でSQLコメントを付与する別機能。
+        'Relation#annotate (Rails 6.0+)' => "User.where(...).annotate('source=user_metrics_runner') で個別クエリに手動コメント付与",
         'database_statements' => 'ActiveRecord::LogSubscriberでクエリログを拡張',
         'APMツール' => 'New Relic, Datadog等でクエリパフォーマンスを可視化'
       }
@@ -476,10 +483,18 @@ module QueryPlanAnalysis
   #
   # 使い方:
   #   User.where(name: "Alice").explain
-  #   → EXPLAIN QUERY PLAN を実行して結果を文字列として返す
+  #   → Rails 7.1+ : :analyze / :verbose / :buffers などのオプションを受け付ける形に拡張
+  #     （ただしこの時点では戻り値は整形済みの文字列）
+  #   → Rails 7.2+ : 戻り値が ActiveRecord::Relation::ExplainProxy になり、
+  #     遅延評価で count / first / pluck などのチェーンに対応した
+  #   → Rails 8.x (本リポジトリの実行環境) では explain は ExplainProxy を返す
   #
   # Rails 7.1+ では explain(:analyze) でEXPLAIN ANALYZEも実行可能
-  # （PostgreSQL/MySQLで実際の実行統計を取得）
+  # （PostgreSQL/MySQLで実際の実行統計を取得。例: query.explain(:analyze, :verbose, :buffers)）
+  #
+  # 補足: Rails 7.0+ の load_async と組み合わせて、
+  #   QpModels::Product.where(...).load_async としておけば、
+  #   後段の to_a 等が別スレッドで先行実行される。EXPLAIN は同期的に走る。
   def demonstrate_activerecord_explain
     seed_test_data
 
@@ -596,10 +611,13 @@ module QueryPlanAnalysis
   # ヘルパーメソッド
   # ==========================================================================
 
-  # ExplainProxyからクエリプラン文字列を取得するヘルパー
-  # Rails 8.1ではexplainがExplainProxyを返し、inspectで実際のプランが取得できる
-  def explain_to_s(explain_proxy)
-    explain_proxy.inspect
+  # explain の戻り値からクエリプラン文字列を取得するヘルパー
+  # Rails 7.2+ では explain が ExplainProxy を返すため、to_s 代わりに inspect を呼んで
+  # 整形済みプラン文字列を取得する。ExplainProxy#inspect は表示用にプラン文字列を返すよう
+  # オーバーライドされている。Rails 7.1 以前は explain が既に文字列なので inspect も文字列を
+  # 返し、どちらのバージョンでも同じ呼び出しで安全に文字列が得られる。
+  def explain_to_s(explain_result)
+    explain_result.inspect
   end
 
   # テストデータの投入

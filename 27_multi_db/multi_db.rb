@@ -280,10 +280,15 @@ module MultiDbSharding
         roles << "preventing: #{ActiveRecord::Base.current_preventing_writes}"
       end
 
+      # context_restored: ネスト終了後にロールが外側の :writing に戻り、かつ prevent_writes が false に戻ったことを検証する
+      outer_role_after = roles[3]
+      preventing_after = roles[4]
+      context_restored = (outer_role_after == :writing) && (preventing_after == 'preventing: false')
+
       {
         role_transitions: roles,
         nesting_supported: true,
-        context_restored: roles.first == roles.last.to_s.split(':').first || true,
+        context_restored: context_restored,
         explanation: 'ネストしたconnected_toはブロック終了で外側のコンテキストに復帰する'
       }
     end
@@ -293,7 +298,7 @@ module MultiDbSharding
   # 4. ホリゾンタルシャーディング: テナント別データ分散
   # ==========================================================================
   #
-  # Rails 6.1+ ではconnects_toでシャードを定義し、
+  # Rails 6.1+ ではconnects_toのshards:キーでシャードを定義し、
   # connected_to(shard:)で動的にシャードを切り替えられる。
   #
   # database.yml の設定例:
@@ -412,7 +417,7 @@ module MultiDbSharding
   module ShardSelection
     # シャード選択のミドルウェアパターンを説明する
     #
-    # Rails 7.1+ では ShardSelector ミドルウェアが提供されている。
+    # Rails 6.1+ では ShardSelector ミドルウェアが提供されている。
     # カスタムロジックでテナントからシャードを解決し、
     # リクエスト全体で一貫したシャード接続を使用する。
     def self.demonstrate_shard_middleware_pattern
@@ -435,8 +440,9 @@ module MultiDbSharding
           '5. ブロック終了で元のコンテキストに復帰'
         ],
         # lock オプション
+        # ShardSelector の lock オプションのデフォルトは true（Rails 6.1+ 仕様）
         lock_option: {
-          true => 'ブロック内でシャードの切り替えを禁止（安全）',
+          true => 'ブロック内でシャードの切り替えを禁止（デフォルト・安全）',
           false => 'ブロック内でも connected_to でシャードを切り替え可能'
         }
       }
@@ -792,7 +798,12 @@ module MultiDbSharding
           ]
         },
         connection_pool: {
-          sizing: '合計コネクション数 = Pumaスレッド数 × DB数 × ロール数',
+          # Rails 6.1+ では connection pool が abstract_class × role × shard ごとに独立で作られ、
+          # さらに Puma が workers × max_threads で並行実行する。
+          # よって 1 サーバから出る最大コネクション数は次式になる:
+          #   workers × max_threads × abstract_class数 × role数 × shard数
+          # 1 プロセス内 1 プールあたりの同時取得数の基準は max_threads。
+          sizing: '1サーバの最大コネクション数 = Puma workers × Puma max_threads × abstract_class数 × role数 × shard数',
           monitoring: '各プールの使用率、待機時間、タイムアウト数を監視',
           tuning: 'checkout_timeout と idle_timeout を適切に設定'
         }

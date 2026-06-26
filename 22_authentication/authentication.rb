@@ -329,10 +329,13 @@ module AuthenticationGenerator
         return { success: false, error: 'ログイン試行回数が上限を超えました。しばらくお待ちください。' }
       end
 
+      # ※ 教育目的の簡易実装: 本来は Rails 7.1+ の `User.authenticate_by(email_address:, password:)`
+      # を使うべき。authenticate_by は識別子で見つからなかった場合も `User.new(password: ...)`
+      # でダミーの BCrypt 計算を走らせて応答時間を均すため、ユーザー列挙のタイミング差を隠蔽できる。
+      # 下のコードはユーザー存在チェックで早期 return しているため、未登録メールでは
+      # 認証成功時よりも有意に速く応答が返る（=ユーザー列挙が可能）点に注意。
       user = User.find_by(email_address: email&.strip&.downcase)
 
-      # ユーザーが存在しない場合もタイミング攻撃を防ぐため
-      # BCrypt の比較を実行する（一定時間を消費する）
       unless user&.authenticate(password)
         # has_secure_password の authenticate メソッドは
         # パスワードが正しければ user を、間違っていれば false を返す
@@ -378,13 +381,20 @@ module AuthenticationGenerator
     end
 
     # パスワードリセット実行
-    def self.reset_password(token:, new_password:, new_password_confirmation:)
+    # 引数名は plaintext / plaintext_confirmation としているが、
+    # 実運用では new_password / new_password_confirmation が一般的な命名。
+    # has_secure_password の password= が即時に BCrypt ハッシュ化するため、
+    # 引数の値はメモリ上の一時値として扱われ DB には password_digest しか保存されない。
+    def self.reset_password(token:, plaintext:, plaintext_confirmation:)
       token_record = PasswordResetToken.find_by_token(token)
       return { success: false, error: '無効または期限切れのトークンです。' } unless token_record
 
       user = token_record.user
-      user.password = new_password
-      user.password_confirmation = new_password_confirmation
+      # has_secure_password が定義する password= は、代入時点で内部的に BCrypt::Password.create
+      # でハッシュ化され、DB には password_digest（ハッシュ文字列）のみが保存される。
+      # 平文の plaintext / plaintext_confirmation はメモリ上の一時値で永続化されない。
+      user.password = plaintext
+      user.password_confirmation = plaintext_confirmation
 
       return { success: false, errors: user.errors.full_messages } unless user.save
 
@@ -579,8 +589,8 @@ module AuthenticationGenerator
     # ステップ3: パスワード変更
     change_result = AuthenticationService.reset_password(
       token: raw_token,
-      new_password: 'new_secure_password',
-      new_password_confirmation: 'new_secure_password'
+      plaintext: 'new_secure_password',
+      plaintext_confirmation: 'new_secure_password'
     )
 
     # リセット後、古いパスワードでは認証できない
@@ -590,8 +600,8 @@ module AuthenticationGenerator
     # 使用済みトークンは再利用不可
     reuse_result = AuthenticationService.reset_password(
       token: raw_token,
-      new_password: 'another_password',
-      new_password_confirmation: 'another_password'
+      plaintext: 'another_password',
+      plaintext_confirmation: 'another_password'
     )
 
     {

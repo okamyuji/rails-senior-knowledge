@@ -186,7 +186,10 @@ module ErrorReporterDemo
       yield
     rescue error_class => e
       report_to_subscribers(e, handled: true, severity: severity, context: context, source: source)
-      fallback
+      # 本物の Rails.error.handle は `fallback.call if fallback` で callable 専用だが、
+      # ここでは教育的に「callable なら呼び出し、それ以外はそのまま返す」両対応にし、
+      # 37_error_handling 側の ErrorReporter#handle と挙動を揃える。
+      fallback.respond_to?(:call) ? fallback.call : fallback
     end
 
     # --- record: 例外を報告してから再送出する ---
@@ -213,7 +216,7 @@ module ErrorReporterDemo
     # --- report: 例外オブジェクトを直接報告する ---
     #
     # ブロックを使わずに、既に捕捉済みの例外オブジェクトを報告する。
-    # Rails 7.1 で追加された API。
+    # handle / record と並ぶ第三の主要 API で、Rails 7.0 から提供されている。
     #
     # 用途:
     # - rescue 節で既に例外を捕捉済みの場合

@@ -44,25 +44,53 @@ end
 | 属性 | 型 | 説明
 | ------ | ------ | ------
 | `name` | String | イベント名です（例: "sql.active_record"）
-| `time` | Float | イベント開始時刻です（ActiveSupport 8.xではモノトニック時計の値）
-| `end` | Float | イベント終了時刻です（ActiveSupport 8.xではモノトニック時計の値）
-| `duration` | Float | 所要時間をミリ秒で表します
+| `time` | Float | イベント開始時刻です（**Float秒**。通常subscribeは壁時計epoch秒、monotonic_subscribeはモノトニック秒。単一引数 `\|event\|` 形式は常にモノトニック秒）
+| `end` | Float | イベント終了時刻です（`time`と同じ時計種別・単位）
+| `duration` | Float | 所要時間（**ミリ秒**）。`@end - @time`（内部はms保持）
 | `transaction_id` | String | ユニークなトランザクションIDです
 | `payload` | Hash | イベントに付随する任意のデータです
 
-### モノトニック時計による正確な計測
+> 注: `time` と `end` は秒、`duration` はミリ秒です（単位が異なります）。Rails 8.1 / ActiveSupport 8.1 でも内部ストレージはミリ秒ですが、`#time` / `#end` のゲッタが 1000.0 で割って秒として返します（`activesupport/lib/active_support/notifications/instrumenter.rb` の `Event#time`）。
 
-Railsはイベントのduration計測にモノトニック時計（`Process::CLOCK_MONOTONIC`）を使用します。壁時計（`Time.now`）
-と異なり、NTPによる時刻補正の影響を受けず、常に単調増加するため、正確な経過時間の計測に適しています。
+### 通常subscribe vs monotonic subscribe
+
+ActiveSupport::Notifications には2つの計測モードがあり、5引数形式 `|name, start, finish, id, payload|` の `start` / `finish` の型と、内部の時計種別が変わります。**最上位の `subscribe` は `monotonic:` キーワードを受け取りません**（受け取るのは下位の `Fanout#subscribe` と `subscribed(callback, pattern, monotonic:)` のみ）。
 
 ```ruby
 
-# 壁時計: NTP補正で巻き戻る可能性があります
+# 1. 通常モード（壁時計、デフォルト）
+# 5引数: start / finish は Time オブジェクト
+ActiveSupport::Notifications.subscribe("sql.active_record") do |name, start, finish, id, payload|
+  start.class    # => Time
+  finish.class   # => Time
+end
 
-Time.now
+# 単一引数 |event| 形式は EventObject サブスクライバとなり、内部で
+# Process.clock_gettime(MONOTONIC, :float_millisecond) を使うため、`event.time` は
+# 常にモノトニック秒（Float）です。
+ActiveSupport::Notifications.subscribe("sql.active_record") do |event|
+  event.time     # => Float (モノトニック秒)
+  event.duration # => Float (ミリ秒)
+end
 
-# モノトニック時計: 常に単調増加します（Rails内部で使用されています）
+# 2. monotonic_subscribe（モノトニック時計）
+# 5引数: start / finish は Float モノトニック秒
+ActiveSupport::Notifications.monotonic_subscribe("sql.active_record") do |name, start, finish, id, payload|
+  start.class    # => Float
+end
 
+# 単一引数 |event| 形式でも当然モノトニック秒が得られます
+ActiveSupport::Notifications.monotonic_subscribe("sql.active_record") do |event|
+  event.time     # => Float (モノトニック秒)
+end
+
+```
+
+`duration` は常にミリ秒で得られます（Event内部はミリ秒で保持されており、getter `#time` / `#end` のみ秒に変換します）。`time` を「実際に起きた絶対時刻」として記録したいログ系では通常モード5引数形式、タイマー類の経過時間記録では `monotonic_subscribe` を選びます。
+
+```ruby
+
+# 参考: 直接モノトニック時計を取得する標準API
 Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
 ```
@@ -310,6 +338,63 @@ ActiveSupport::Notifications.subscribe("sql.active_record") do |*args|
 end
 
 ```
+
+## Rails 8.1 新機能: 構造化イベントレポーター（Rails.event）
+
+Rails 8.1では `ActiveSupport::Notifications` とは別に、機械可読な構造化イベントを発行するための新APIとして
+`ActiveSupport::EventReporter` が導入されました。`Rails.event` 経由でアクセスでき、
+ログ（人間向け）と分離した「機械向けイベント」を統一的に発行する用途を目指しています。
+
+```ruby
+
+# 構造化イベントの発行
+Rails.event.notify("user.signup", user_id: 123, email: "alice@example.com")
+
+# タグ付け（イベントに共通コンテキストを付与）
+Rails.event.tagged("graphql") do
+  Rails.event.notify("query.executed", duration_ms: 12.3)
+end
+
+# コンテキストの設定（Fiber-localで保持）
+Rails.event.set_context(request_id: "abc-123")
+
+```
+
+サブスクライバーは `#emit(event)` を実装したオブジェクトを登録します。Rails 8.1の `ActiveSupport::EventReporter` は `event` を **Hashとしてサブスクライバーに渡します**（メソッド呼び出しではなくキーアクセスを使用）。Hashのキーは `:name` `:payload` `:tags` `:context` `:timestamp` `:source_location` です。
+
+```ruby
+
+class JsonEventSubscriber
+  def emit(event)
+    payload = {
+      name: event[:name],
+      payload: event[:payload],
+      tags: event[:tags],
+      context: event[:context],
+      timestamp: event[:timestamp],
+      source_location: event[:source_location]
+    }
+    Rails.logger.info(payload.to_json)
+  end
+end
+
+Rails.event.subscribe(JsonEventSubscriber.new)
+
+```
+
+`ActiveSupport::Notifications` との使い分けは以下の通りです。
+
+| 用途 | 推奨API
+| ------ | ------
+| パフォーマンス計装（duration計測） | `ActiveSupport::Notifications.instrument`
+| 構造化イベントの発行（ビジネスイベント、監査） | `Rails.event.notify`
+| APMやログ収集ツールへの統合 | 両方が併用可能
+
+設定は `config.active_support.event_reporter_context_store` で
+コンテキストストア（デフォルトは `ActiveSupport::EventContext`、Fiber-local）を切り替えられます。
+
+詳細は [Rails 8.1 リリースノート](https://guides.rubyonrails.org/8_1_release_notes.html#structured-event-reporting)
+を参照してください。
 
 ## 実行方法
 

@@ -76,13 +76,19 @@ ActiveRecord Encryptionは以下の3つの鍵を設定で管理します。
 
 | 鍵 | 用途 | 設定キー
 | ---- | ------ | ---------
-| プライマリキー | データ暗号化鍵（DEK）の暗号化に使用します | `primary_key`
-| 決定的キー | 決定的暗号化で使用される鍵です | `deterministic_key`
-| 鍵導出ソルト | PBKDF2による鍵導出に使用します | `key_derivation_salt`
+| プライマリキー | デフォルト（`DerivedSecretKeyProvider`）では`key_derivation_salt`とともにPBKDF2に渡され、データを暗号化する派生鍵を生成します。`EnvelopeEncryptionKeyProvider`構成では DEK 暗号化用の KEK（鍵暗号化鍵）として使われます | `primary_key`
+| 決定的キー | 決定的暗号化（インデックス・WHERE検索可能）で使用される鍵です | `deterministic_key`
+| 鍵導出ソルト | デフォルト構成でPBKDF2による鍵導出に使用します | `key_derivation_salt`
 
-### エンベロープ暗号化の仕組み
+DerivedSecretKeyProvider（デフォルト）は **DEKを生成しません**。`primary_key` から導出した派生鍵で直接データを暗号化するため、上の表で「DEKの暗号化」と読めるのはエンベロープ構成限定の話です。
 
-エンベロープ暗号化は、暗号化鍵自体を別の鍵で暗号化する二層構造のパターンです。
+### デフォルトの鍵導出（DerivedSecretKeyProvider）
+
+ActiveRecord Encryptionのデフォルトの`KeyProvider`は`DerivedSecretKeyProvider`で、設定された`primary_key`と`key_derivation_salt`からPBKDF2で派生鍵を生成し、その派生鍵で直接データを暗号化します（レコードごとのDEK生成は行いません）。
+
+### オプション: エンベロープ暗号化（EnvelopeEncryptionKeyProvider）
+
+`ActiveRecord::Encryption::EnvelopeEncryptionKeyProvider`を明示的に設定すると、真のエンベロープ暗号化（暗号化鍵自体を別の鍵で暗号化する二層構造）が利用できます。これはデフォルトではありません。
 
 ```text
 
@@ -93,15 +99,15 @@ ActiveRecord Encryptionは以下の3つの鍵を設定で管理します。
 
 ```
 
-この方式の利点は以下の通りです。
+エンベロープ暗号化を採用するメリットは以下の通りです。
 
 - 鍵ローテーションが容易です: マスター鍵を変更する際、データの再暗号化が不要です（DEKの再暗号化のみ）
 - 鍵の階層管理が可能です: マスター鍵をHSMやKMSで管理し、DEKはアプリケーション側で管理できます
 - 高速な暗号化を実現します: 大量のデータを暗号化する際も、対称鍵暗号で高速に処理できます
 
-### 暗号文のエンベロープ構造
+### 暗号文のJSONエンベロープ構造
 
-データベースに格納される暗号文はJSON形式のエンベロープに包まれています。
+データベースに格納される暗号文は、鍵導出方式に関わらずJSON形式のエンベロープに包まれています。なおこの「エンベロープ」はデータ構造の名称で、上述のエンベロープ暗号化（KEK/DEKパターン）とは別概念です。
 
 ```json
 
@@ -138,7 +144,7 @@ encrypts :email, deterministic: true
 
 ```
 
-- 同じ平文からは常に同じ暗号文が生成されます（固定IVを使用）
+- 同じ平文からは常に同じ暗号文が生成されます（IVは平文と鍵から決定的に導出されるHMAC-SHA256ベース）
 - WHERE句でのクエリが可能です
 - `find_by`, `where`で検索できます
 - 頻度分析に脆弱です（同じ暗号文パターンから推測される可能性があります）
@@ -219,17 +225,35 @@ user.update!(
 
 #### パターン3: 暗号学的消去（Crypto-shredding）
 
+ActiveRecord Encryptionのデフォルト構成（`DerivedSecretKeyProvider`）では、`primary_key` と `key_derivation_salt` から全レコード共通の鍵が導出されるため、**ユーザーごとに独立した鍵は存在しません**。暗号学的消去を実装するには、独自の `KeyProvider` を実装してユーザーIDごとに鍵を分離する必要があります。
+
 ```ruby
 
-# ユーザー固有の暗号化鍵を破棄します
+# 例: ユーザー単位の KeyProvider を定義し、ユーザー削除時に鍵レコードを破棄する
+# 現在のユーザーIDは Rails の Current attributes（リクエスト/Fiber スコープ）から
+# 取得する設計とする。`ActiveRecord::Encryption.context` には user_id アクセサは
+# 存在しないため、`Current.user` 等から自前で参照すること。
+class PerUserKeyProvider
+  def encryption_key
+    key = UserEncryptionKey.find_by!(user_id: Current.user&.id)
+    ActiveRecord::Encryption::Key.new(key.secret)
+  end
 
-# → バックアップも含めてデータが復号不可能になります
+  def decryption_keys(encrypted_message)
+    [encryption_key]
+  end
+end
 
-user.encryption_key.destroy!
+# ユーザー削除時に鍵レコードのみを物理削除する
+class User < ApplicationRecord
+  has_one :encryption_key_record, class_name: "UserEncryptionKey", dependent: :destroy
+end
+
+# user.destroy → UserEncryptionKey が削除され、バックアップ中の暗号文も復号不可能になる
 
 ```
 
-バックアップにデータが残っていても、鍵がなければ復号できないため、実質的にデータが「忘れられた」状態になります。
+鍵レコードを物理削除すれば、バックアップにデータが残っていても復号できないため、実質的にデータが「忘れられた」状態になります。設定例の詳細は[Active Record Encryption Guide #custom-key-providers](https://guides.rubyonrails.org/active_record_encryption.html#custom-key-providers) を参照してください。
 
 ### データ最小化の実装
 
@@ -295,15 +319,29 @@ active_record_encryption:
 
 ```
 
-ローテーション後の再暗号化は以下のコマンドで実行します。
+ActiveRecord Encryptionは復号時に `previous` を含むすべての鍵を順に試すため、設定を更新するだけで段階的な移行が可能です（**非決定的暗号化のみローテーション可能**。決定的暗号化はインデックス互換性のためローテーションできません）。
 
-```bash
+ローテーション後の再暗号化には、Rails標準のRakeタスクは存在しません。バッチで明示的に再暗号化する必要があります。
 
-# 全レコードを新しい鍵で再暗号化します
+```ruby
 
-bin/rails db:encryption:rotate
+# lib/tasks/encryption.rake などに定義
+namespace :app do
+  task reencrypt_users: :environment do
+    User.find_each do |user|
+      # Active Record Encryption は属性に値を再代入すると最新の primary_key で
+      # 再暗号化されるため、ダミー代入で全レコードを書き直す。
+      user.update_columns(
+        name: user.name,
+        phone_number: user.phone_number
+      )
+    end
+  end
+end
 
 ```
+
+旧鍵を `previous` から削除できるのは、すべての暗号化済みレコードを新鍵で書き直し終えた後です。
 
 ### セキュリティチェックリスト
 

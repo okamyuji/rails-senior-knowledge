@@ -39,7 +39,33 @@ class AuthorizationError < BusinessError; end
 # システムエラー（インフラ/外部サービスに起因します）
 
 class SystemError < ApplicationError; end
-class ExternalServiceError < SystemError; end
+
+class ExternalServiceError < SystemError
+  attr_reader :service_name, :original_error
+
+  # 外部サービス由来のエラーは「どのサービス」が「どの原因」で失敗したかを
+  # 構造化したいので、独自initializerを定義する。
+  # original_errorは Ruby 2.1+ の `cause` 自動チェーンと併用しても良いが、
+  # `raise ... , cause: e` を使わない場合に備えてフィールドにも保持しておく。
+  # HTTP 503 (Service Unavailable) は「外部依存サービスが一時的に応答不能」の
+  # 意味で使う。上流サービスが不正なレスポンスを返す系であれば 502 (Bad Gateway)
+  # を選ぶこともある。プロジェクトのポリシーに合わせて選択する。
+  def initialize(message = nil, service_name: nil, original_error: nil, metadata: {})
+    @service_name = service_name
+    @original_error = original_error
+    super(
+      message || "外部サービスエラー: #{service_name}",
+      error_code: "EXTERNAL_SERVICE_ERROR",
+      http_status: 503,
+      metadata: metadata.merge(
+        service_name: service_name,
+        original_error_class: original_error&.class&.name,
+        original_message: original_error&.message
+      )
+    )
+  end
+end
+
 class DatabaseError < SystemError; end
 
 ```
@@ -373,15 +399,18 @@ end
 
 ## エラー報告と監視
 
-### Rails 7.1+のErrorReporter
+### Rails 7+のErrorReporter
 
-Rails 7.1以降では`Rails.error`を使ってアプリケーション全体で統一的にエラーを報告できます。
+Rails 7.0以降は`Rails.error`（`ActiveSupport::ErrorReporter`）を使ってアプリケーション全体で統一的にエラーを報告できます（`set_context`や複数サブスクライバー登録は7.1以降でAPIが拡張されています）。
 
 ```ruby
 
 # handle: エラーを報告しつつ処理を続行します（非致命的エラー向け）
+# Rails の `handle` は `fallback` を **callable**（lambda/proc）として呼び出すため、
+# 値そのものではなく `-> { ... }` で渡す必要があります。
+# 内部実装は `fallback.call if fallback` 相当です。
 
-result = Rails.error.handle(fallback: default_value) do
+result = Rails.error.handle(fallback: -> { default_value }) do
   risky_operation
 end
 
@@ -405,6 +434,34 @@ rescue ExternalServiceError => e
 end
 
 ```
+
+### Rails 8.1のEvent Reporter（Rails.event）
+
+Rails 8.1で構造化イベント送信のための`Rails.event`（`ActiveSupport::EventReporter`）が追加されました。エラー報告に限らずビジネスイベント・テレメトリーまでを「構造化イベント」として一元的に扱えます。エラーレポーターと併用すると、障害発生前後の文脈を含めて観測しやすくなります。
+
+```ruby
+
+# 構造化イベントを通知します
+Rails.event.notify("payment.charged", user_id: 42, amount: 1000, currency: "JPY")
+
+# タグやコンテキストを束ねます
+Rails.event.set_context(request_id: request.request_id)
+Rails.event.tagged("checkout") do
+  Rails.event.notify("payment.attempted", user_id: 42)
+end
+
+# テスト側のヘルパー
+# 単一のイベントを検証する場合は単数形（assert_event_reported）。
+# 複数のイベントをまとめて検証する場合は複数形（assert_events_reported）に
+# Hash 配列を渡す: assert_events_reported([{ name: "...", payload: { ... } }])
+assert_event_reported("payment.charged", payload: { user_id: 42, amount: 1000 }) do
+  PaymentService.charge(user, 1000)
+end
+
+```
+
+サブスクライバーは`Rails.event.subscribe(MyJsonLineSubscriber.new)`のように登録し、独自フォーマット（JSON
+Lines、OTLP、Datadog等）で送出します。
 
 ### 構造化されたエラーデータ
 

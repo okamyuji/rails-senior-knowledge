@@ -61,12 +61,15 @@ class SilentExceptionDetector
       }
     end
 
-    trace.enable { @app.call(env) }
+    # ブロックの戻り値（[status, headers, body]）を必ず返す。
+    # TracePoint#enable はブロックの戻り値をそのまま返却するため、
+    # 一度ローカル変数で受けることで意図を明示する。
+    response = trace.enable { @app.call(env) }
 
-    # 閾値を超えた場合にアラート
-    if silent_exceptions.size > 10
-      Rails.logger.warn("過剰な例外検出: #{silent_exceptions.size}件")
-    end
+    # 閾値を超えた場合にアラート（レスポンスには影響させない）
+    Rails.logger.warn("過剰な例外検出: #{silent_exceptions.size}件") if silent_exceptions.size > 10
+
+    response
   end
 end
 

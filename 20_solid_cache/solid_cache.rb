@@ -23,11 +23,17 @@ module SolidCacheInternals
     # Solid Cacheのテーブルスキーマをインメモリ SQLite に構築する
     # 実際のSolid Cacheは solid_cache_entries テーブルを使用する
     #
-    # スキーマの要点:
-    # - key: キャッシュキーのSHA256ハッシュ（固定長42バイト、Base64エンコード）
+    # 教育用簡略版スキーマの要点:
+    # - key: キャッシュキーのSHA256ハッシュ（固定長48バイト、Base64+接頭辞）
     # - value: シリアライズされたキャッシュ値（BLOB）
     # - byte_size: エントリ全体のバイトサイズ（key + value）
     # - created_at: 作成日時（FIFOエビクションの基準）
+    #
+    # 実際のSolid Cache（gem版）のスキーマとの違い:
+    # - 本物では key は生のバイナリ（最大1024バイト）として保存され、
+    #   検索用インデックスは別カラム key_hash（bigint=64bitハッシュ）に張られる。
+    #   ここでは概念を簡潔に示すため key カラムにハッシュ済み文字列を入れて
+    #   そのまま検索する形式に統合している。
     #
     # 注意: Solid Cacheはupdated_atを持たない。これはLRUではなくFIFO戦略の
     # 設計上の選択であり、読み取り時にタイムスタンプを更新する必要がないため、
@@ -61,8 +67,13 @@ module SolidCacheInternals
   class CacheEntry < ActiveRecord::Base
     self.table_name = 'solid_cache_entries'
 
-    # Solid CacheはキーをSHA256でハッシュ化して保存する
-    # これにより固定長のキーが得られ、インデックス効率が向上する
+    # 本物のSolid Cache（gem 1.0系）は `Digest::SHA256.digest(key).unpack("q>").first`
+    # で算出した signed int64 を `key_hash` カラムに保持し、`key`カラム（生キー）と
+    # 別カラムで管理する（インデックスは `key_hash` 側に張る）。
+    # 本教育用実装では概念を分かりやすくするため、`key_hash` を分離せず
+    # `key` カラムに SHA-256 を base64 した値を入れる簡略形にしている。
+    # Base64文字列にしているのは ActiveRecord の string カラムで扱いやすくするためで、
+    # 本物の Solid Cache とは構造が異なる点に注意。
     def self.normalize_key(key)
       "s3c-#{Digest::SHA256.base64digest(key)}"
     end

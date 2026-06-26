@@ -178,20 +178,24 @@ user = build(:user)
 
 ```ruby
 
-# before(:all)ベースの安全なlet
-
-# describeブロック内で一度だけ作成し、各テスト後にロールバックします
+# before(:all)ベースのlet。describe（テストグループ）単位で1回だけ
+# レコードを作成し、グループ全体を1つのトランザクションで囲んで
+# **グループ終了時にまとめてロールバック**する。
+# 各 example（テストケース）の終わりではロールバックされず、
+# `user` レコードは同一グループ内のすべての example で共有される。
+# 必要に応じて `reload: true` / `refind: true` で example ごとの
+# 再ロードや再取得を強制できる。
 
 describe "ユーザー関連テスト" do
-  let_it_be(:user) { create(:user) }       # 一度だけINSERT
-  let(:fresh_user) { create(:user) }        # 毎テストINSERT
+  let_it_be(:user) { create(:user) }        # グループ内で一度だけINSERT
+  let(:fresh_user) { create(:user) }         # 毎exampleでINSERT
 
   it "テスト1" do
     # userは共有されます（高速）
   end
 
   it "テスト2" do
-    # 同じuserを再利用します（高速）
+    # 同じuserを再利用します（高速・前のテストの変更は残らない＝reload推奨）
   end
 end
 
@@ -203,7 +207,7 @@ end
 | --- | --- | --- | ---
 | `before(:each)` | 各テスト前 | 高い | 低い
 | `before(:all)` | ブロック全体で一度 | 低い（データ共有） | 高い
-| `let_it_be` | ブロック全体で一度 + ロールバック | 中程度 | 高い
+| `let_it_be` | ブロック全体で一度 + グループ終了時にロールバック | 中程度（exampleごとの分離はreload:オプション依存） | 高い
 
 #### 4. 不要な関連オブジェクトの回避
 
@@ -217,14 +221,26 @@ factory :order do
 end
 
 # 良い例: 必要最小限の関連のみを定義します
+# `create(:order)` が呼ばれることを前提にする場合、`strategy: :build_stubbed`
+# を association に使うと、stub された user が DB に存在しないまま order を
+# INSERT してしまい、外部キー制約違反やデータの矛盾を生む（過去の悪い例参照）。
+# 関連オブジェクトを軽く済ませたい場合は、(1) build戦略で組み立てる
+# build_stubbed(:order, user: build_stubbed(:user)) を呼び出し側で使う、
+# (2) `traits` で必要なときだけ重い関連を作る、のどちらかにする。
 
 factory :order do
-  association :user, strategy: :build_stubbed
-  # itemsは必要なテストでのみtraitで追加します
+  # 通常戦略: order を create したら、関連の user も create される（参照整合性を保つ）
+  user
+
+  # 重い項目はデフォルトでは付けず、必要なテストでだけ trait を呼ぶ
   trait :with_items do
     after(:create) { |order| create_list(:item, 2, order: order) }
   end
 end
+
+# 永続化が不要なテスト（純粋ロジック検証）は build_stubbed で組む
+# build_stubbed(:order, user: build_stubbed(:user))
+#   → どちらも DB INSERT されず、id だけ付与される
 
 ```
 
@@ -232,17 +248,27 @@ end
 
 ### Rails標準（Minitest）
 
+Rails 6以降、Minitestには`parallelize`が組み込まれており、プロセスフォーク（デフォルト）またはスレッドで並列化できます。実行コマンドは`bin/rails
+test`（Rails 5.2+）が標準で、`bin/rails test:system` や `bin/rails test path/to/file.rb:42` のように行番号指定も可能です。
+
 ```ruby
 
 # test/test_helper.rb
 
 class ActiveSupport::TestCase
+  # ワーカー数を CPU コア数に合わせる。デフォルトは fork ベースのプロセス並列。
+  # スレッド並列を使う場合は `parallelize(workers: ..., with: :threads)` を指定する
+  # （JRuby やフォークできない環境向け。ただし parallelize_setup フックは利用不可）。
   parallelize(workers: :number_of_processors)
 
   # プロセス並列化時のフック
   parallelize_setup do |worker|
-    # ワーカーごとの初期化処理
+    # ワーカーごとの初期化処理（ActiveStorageのストレージ分離など）
     ActiveStorage::Blob.service.root = "#{ActiveStorage::Blob.service.root}-#{worker}"
+  end
+
+  parallelize_teardown do |worker|
+    # 後片付け（一時ファイルの削除など）
   end
 end
 

@@ -298,13 +298,18 @@ module RefinementsDemo
   #
   # === Ruby バージョンによる挙動の変化 ===
   #
-  # Ruby 3.2 以降、Refinements の制限が大幅に緩和された:
-  # - respond_to? が Refined メソッドを検出するようになった（3.2+）
-  # - send / public_send が Refinement を経由するようになった（3.2+）
-  # - method() で Refined メソッドの Method オブジェクトを取得可能になった（3.2+）
+  # Refinements の制限は Ruby 2.x 系で段階的に解消されてきた:
+  # - send が Refinement を経由するようになった（Ruby 2.4+）
+  # - respond_to? / public_send が Refined メソッドを検出するようになった（Ruby 2.6+）
+  # - Symbol#to_proc の暗黙的変換が Refinement を経由するようになった（Ruby 2.6+）
+  # - Object#method / Module#instance_method が Refined メソッドを返すようになった（Ruby 2.7+）
+  # - Module#refinements / Module.used_refinements / Refinement#refined_class が
+  #   内省用APIとして追加された（Ruby 3.2+）
+  # - Ruby 3.3 で Refinement#refined_class は Refinement#target に改名（refined_classはdeprecated）
+  # - Ruby 3.4 で Refinement#refined_class は削除（targetのみ利用可能）
   #
-  # Ruby 3.1 以前では上記はすべて制限事項であった。
-  # 古いバージョンとの互換性が必要な場合は注意が必要。
+  # Ruby 3.4 では上記すべてが期待通りに動作するため、本デモも問題なく成功する。
+  # Ruby 2.5 以前との互換性が必要な場合は注意が必要。
 
   module LimitationDemo
     refine String do
@@ -322,20 +327,20 @@ module RefinementsDemo
       'test'.refined_method
     end
 
-    # Ruby 3.2+ では respond_to? が Refined メソッドを検出する
-    # （Ruby 3.1 以前では false を返していた）
+    # Ruby 2.6+ では respond_to? が Refined メソッドを検出する
+    # （Ruby 2.5 以前では false を返していた）
     def self.respond_to_check
       'test'.respond_to?(:refined_method)
     end
 
-    # Ruby 3.2+ では send も Refinement を経由する
-    # （Ruby 3.1 以前では NoMethodError になっていた）
+    # Ruby 2.4+ では send も Refinement を経由する
+    # （Ruby 2.3 以前では NoMethodError になっていた）
     def self.send_call
       'test'.send(:refined_method)
     end
 
-    # Ruby 3.2+ では method() も Refined メソッドを返す
-    # （Ruby 3.1 以前では NameError になっていた）
+    # Ruby 2.7+ では method() も Refined メソッドを返す
+    # （Ruby 2.6 以前では NameError になっていた）
     def self.method_object_check
       'test'.method(:refined_method)
     end

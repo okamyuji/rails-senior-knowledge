@@ -236,8 +236,9 @@ RSpec.describe ZeitwerkAutoloader do
       it 'collapseディレクティブの用途を説明する' do
         info = described_class.explain_collapse
         expect(info[:purpose]).to include('名前空間にマッピングしない')
-        expect(info[:example][:without_collapse][:constant]).to eq 'Concerns::Searchable'
-        expect(info[:example][:with_collapse][:constant]).to eq 'Searchable'
+        expect(info[:example][:without_collapse][:constant]).to eq 'Myapp::Shared::Foo'
+        expect(info[:example][:with_collapse][:constant]).to eq 'Myapp::Foo'
+        expect(info[:rails_concerns]).to include('ネストしたルートディレクトリ')
       end
     end
   end

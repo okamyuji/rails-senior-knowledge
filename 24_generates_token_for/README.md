@@ -92,7 +92,7 @@ end
 
 - 有効期限: 15〜30分（短いほど安全です）
 - 無効化条件: パスワード変更で`password_salt`が変わるため自動無効化されます
-- 使い捨て: パスワードリセット完了後、同じトークンは使用できません
+- 注意: `generates_token_for` は**消費状態をDBに持ちません**。実装上はブロック値（`password_salt`）が変わるまで有効期限内なら再利用可能です。リセット完了後にトークンを確実に無効化したい場合、リセット成功時に `update!(password: ...)` で `password_salt` を変更することで自動的に無効化される、という前提に依存します
 
 ### メール確認
 
@@ -113,14 +113,30 @@ end
 ```ruby
 
 generates_token_for :one_time_login, expires_in: 30.minutes do
+  # ログイン成功時に updated_at が変わる前提でブロック値に採用する。
+  # ただし通常のログインフローでは User レコードは更新されないため、
+  # 「ログイン完了時に明示的に touch する」実装をセッションController側に
+  # 追加しないと自動失効しない点に注意。
   updated_at&.to_f
+end
+
+# 例: ログイン成功時に明示的に touch して既発行のトークンを無効化
+class SessionsController < ApplicationController
+  def create
+    user = User.find_by_token_for(:one_time_login, params[:token])
+    return redirect_to new_session_path, alert: '無効なリンクです' unless user
+
+    user.touch
+    sign_in(user)
+    redirect_to root_path
+  end
 end
 
 ```
 
 - 有効期限: 15〜30分です
-- 無効化条件: ログイン時に`updated_at`が更新されると無効化されます
-- セキュリティ: ログイン後にトークンが自動的に失効します
+- 無効化条件: ブロック値（`updated_at`）が変わると無効化されます
+- 注意: ログイン時に `touch` や `update_columns(updated_at: Time.current)` を**明示的に呼ぶ実装が必須**です。これがないと同じトークンでログインを何度も繰り返せてしまいます
 
 ### メール配信停止（長期有効）
 

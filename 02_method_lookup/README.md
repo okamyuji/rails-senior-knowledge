@@ -35,10 +35,11 @@ ancestorsチェーンで決まります。
 
 ## メソッド探索の基本順序
 
+receiverのクラスを起点として、Rubyは以下の順序でメソッドを探索します。`prepend`されたモジュールは `ancestors` チェーン上で**クラス本体より前**に挿入されるため、最初に探索される点が重要です。
+
 ```text
 
-receiverのクラス
-  → prependされたモジュール（最後にprependされたものが先）
+prependされたモジュール（最後にprependされたものが先・LIFO）
   → クラス自身
   → includeされたモジュール（最後にincludeされたものが先・LIFO）
   → スーパークラス
@@ -49,7 +50,7 @@ receiverのクラス
 
 ```
 
-`Module#ancestors`メソッドで、この探索チェーン全体を配列として確認できます。
+`Module#ancestors`メソッドで、この探索チェーン全体を配列として確認できます。`ancestors`の並び順がそのまま探索順となります。
 
 ## includeとprependの使い分け
 

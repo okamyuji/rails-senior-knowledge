@@ -54,33 +54,38 @@ c = -"hello"        # デデュプリケーション付き
 
 ### Chilled（冷却された）文字列という新概念
 
-Ruby 3.4では、`frozen_string_literal`プラグマが指定されていないファイルの文字列リテラルが新しい「Chilled」状態になります。
+Ruby 3.4では、`frozen_string_literal`プラグマが指定されていないファイルの文字列リテラルが新しい「Chilled」状態になります。Chilled Stringは見た目はミュータブルなのですが、破壊的に変更すると非推奨警告が出る、という移行期向けの中間状態です。
 
 ```ruby
 
 # frozen_string_literalプラグマなし（Ruby 3.4）
 
 str = "hello"
-str.frozen?     # => true（Chilled状態）
+str.frozen?     # => false（Chilled Stringは frozen? が false）
+                #    ※ Ruby 3.4-preview1 では true を返す実装だったが、
+                #      正式リリース前に false に戻された
 
-str << " world" # => warning: literal string will be frozen in the future
-                #    操作自体は成功する
+str << " world" # warning: literal string will be frozen in the future
+                # (run with --debug-frozen-string-literal for more information)
+                # 操作自体は成功し、変更も反映される
 
-str.frozen?     # => false（unfreezeされた）
+str.frozen?     # => false（依然としてミュータブル）
 str             # => "hello world"
 
 ```
+
+警告を有効化するには `-W:deprecated` または `Warning[:deprecated] = true` を設定します。`--debug-frozen-string-literal` オプションで発生箇所のスタックトレースも取得できます。
 
 ### Chilled Stringの設計意図
 
 | バージョン | プラグマなし | プラグマtrue | プラグマfalse
 | ----------- | ------------- | -------------- | ---------------
 | Ruby 3.3以前 | ミュータブル | フリーズ | ミュータブル
-| Ruby 3.4 | Chilled（警告付き） | フリーズ | ミュータブル
+| Ruby 3.4 | Chilled（ミュータブル＋変更時に警告） | フリーズ | ミュータブル
 | 将来のRuby | フリーズ（予定） | フリーズ | ミュータブル
 
 Chilled
-Stringは、将来のRubyで文字列リテラルがデフォルトでフリーズされることへの移行パスとして設計されています。破壊的操作時に即座にエラーにするのではなく、警告を出してから操作を許可することで、既存コードの段階的な修正を可能にします。
+Stringは、将来のRubyで文字列リテラルがデフォルトでフリーズされることへの移行パスとして設計されています。`frozen?` を `true` にしないのは、`str = str.dup if str.frozen?` のような既存パターンを誤動作させないためで、ミュータブルなまま「将来フリーズされる」ことを警告で告知する設計になっています。
 
 ### `frozen_string_literal: false`との違い
 

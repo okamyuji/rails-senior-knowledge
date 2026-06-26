@@ -455,7 +455,8 @@ module NPlusOneDetection
   # デフォルトバッチサイズは1000件。
   #
   # 注意点:
-  #   - ORDER BYは主キーの昇順に固定される（カスタムソートは不可）
+  #   - デフォルトは主キーの昇順。Rails 7.1+ では order: :asc/:desc で方向を指定可能
+  #   - Rails 8.0+ では cursor: でカーソル列（主キー以外）も指定できる（複合主キー対応）
   #   - includes と組み合わせてN+1を防止しつつバッチ処理できる
   #   - in_batches はRelationを返すため、update_allやdelete_allと組み合わせやすい
   def demonstrate_batch_loading
@@ -502,7 +503,7 @@ module NPlusOneDetection
       in_batches_total: in_batches_count,
       batch_eager_results: batch_eager_results,
       batch_eager_query_count: batch_eager_query_count,
-      batch_processing_note: 'find_each/find_in_batches はORDER BY主キー固定、カスタムソート不可'
+      batch_processing_note: 'find_each/find_in_batches はデフォルトで主キー昇順、order: は Rails 7.1+、cursor: は Rails 8.0+ で利用可'
     }
   end
 

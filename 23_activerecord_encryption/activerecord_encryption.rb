@@ -157,7 +157,7 @@ module ActiveRecordEncryption
   # 【決定的暗号化（Deterministic Encryption）】
   # - 同じ平文 + 同じ鍵 → 常に同じ暗号文
   # - WHERE句でのクエリが可能（暗号文同士を比較できるため）
-  # - AES-256-GCMを固定IVで使用
+  # - AES-256-GCMを使用し、IVは平文と鍵から決定的に導出される（HMAC-SHA256）
   # - 注意: 同じ暗号文パターンから頻度分析が可能なため、セキュリティは劣る
   #
   # 【非決定的暗号化（Non-deterministic / Randomized Encryption）】
@@ -210,25 +210,27 @@ module ActiveRecordEncryption
   end
 
   # ==========================================================================
-  # 3. 鍵導出とエンベロープ暗号化
+  # 3. 鍵導出とエンベロープ（JSON 形式の暗号文構造）
   # ==========================================================================
   #
-  # ActiveRecord Encryptionはエンベロープ暗号化パターンを採用している:
+  # 【デフォルト: PBKDF2 による鍵導出】
+  # ActiveRecord Encryption のデフォルト KeyProvider は DerivedSecretKeyProvider で、
+  # primary_key と key_derivation_salt から PBKDF2 で実際の暗号化鍵を導出する。
+  # これにより設定ファイルの鍵が直接暗号化に使われることはない。
+  # 各レコードごとに DEK を生成する「envelope encryption（鍵の階層管理）」とは
+  # 異なり、デフォルトはあくまで派生鍵による直接暗号化である。
   #
-  # 【エンベロープ暗号化の仕組み】
-  # 1. データ暗号化鍵（DEK: Data Encryption Key）がランダムに生成される
-  # 2. DEKでデータ（平文）を暗号化する
-  # 3. マスター鍵（KEK: Key Encryption Key）でDEKを暗号化する
-  # 4. 暗号化されたデータと暗号化されたDEKを一緒に保存する
+  # 【オプション: EnvelopeEncryptionKeyProvider】
+  # ActiveRecord::Encryption::EnvelopeEncryptionKeyProvider を明示的に設定すると、
+  # 真のエンベロープ暗号化（レコードごとにランダム DEK を生成し、KEK で暗号化）
+  # を有効にできる。AWS KMS 等の外部 KMS と組み合わせる際に有用。
   #
-  # 【鍵導出】
-  # primary_keyとkey_derivation_saltからPBKDF2で実際の暗号化鍵を導出する。
-  # これにより、設定ファイルの鍵が直接暗号化に使われることはない。
-  #
-  # 【利点】
-  # - マスター鍵のローテーションが容易（DEKを再暗号化するだけ）
-  # - データの再暗号化が不要
-  # - 鍵の階層管理が可能
+  # 【共通: JSON エンベロープ構造】
+  # 鍵導出方式に関わらず、生成された暗号文は JSON 形式のエンベロープに包まれる:
+  #   {"p": "payload（暗号化されたデータ）",
+  #    "h": {"iv": "初期化ベクトル", "at": "認証タグ", ...}}
+  # この「エンベロープ」はあくまでデータ構造の名称であり、エンベロープ暗号化
+  # （envelope encryption: KEK/DEK パターン）と混同しないこと。
   def demonstrate_key_derivation_and_envelope
     # 暗号化設定の確認
     ActiveRecord::Encryption.config
@@ -381,12 +383,14 @@ module ActiveRecordEncryption
     ciphertext_unchanged = original_ciphertext == updated_ciphertext
 
     # 鍵ローテーションの概念的なフロー
+    # Rails標準には `db:encryption:rotate` のような再暗号化 rake タスクは存在しないので、
+    # 再暗号化は独自の rake タスク等でレコードに値を再代入する形で行う。
     rotation_steps = [
       '1. credentials.ymlに新しいprimary_keyを設定',
       '2. 古いprimary_keyをprevious配列に追加',
       '3. デプロイ後、新しいレコードは新しい鍵で暗号化',
       '4. 古いレコードは読み取り時に旧鍵で自動復号',
-      '5. rake db:encryption:rotate で全レコードを再暗号化'
+      '5. 独自rakeタスクで User.find_each { |u| u.update_columns(email: u.email, ...) } のように再暗号化'
     ]
 
     {

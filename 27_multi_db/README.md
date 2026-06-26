@@ -218,7 +218,7 @@ end
 利点: データが均等に分散されます
 注意: シャード数の変更時にリバランシングが必要です
 
-### ShardSelectorミドルウェア（Rails 7.1+）
+### ShardSelectorミドルウェア（Rails 6.1+）
 
 ```ruby
 
@@ -233,7 +233,7 @@ config.active_record.shard_resolver = ->(request) {
 ```
 
 `lock:
-true`を設定すると、ミドルウェアが設定したシャード内で`connected_to(shard:)`による切り替えが禁止されます。これにより、
+true`はデフォルト値で、ミドルウェアが設定したシャード内で`connected_to(shard:)`による切り替えが禁止されます。これにより、
 テナントのデータが意図せず別シャードに書き込まれることを防ぎます。
 
 ### クロスシャードクエリ
@@ -300,17 +300,25 @@ rails generate migration AddEmailToUsers email:string --database primary
 
 ### コネクションプールのサイジング
 
-マルチDB構成ではプール数が増えるため、合計コネクション数の管理が重要になります。
+マルチDB構成ではプール数が増えるため、合計コネクション数の管理が重要になります。Rails 6.1以降、ActiveRecordはconnection poolを **「abstract class × role × shard」の組み合わせごとに独立に作成** します。さらに Puma は **process（worker）× thread** で並行実行するため、1台のサーバから出る同時コネクション数は次の式になります。
 
 ```text
 
-合計コネクション数 = Pumaスレッド数 × DB数 × ロール数
+1サーバあたりの最大コネクション数
+  = Pumaのworkers数 × Pumaのmax_threads数 × abstract_class数 × role数 × shard数
 
-例: Puma 5スレッド × 3シャード × 2ロール(writing/reading) = 30コネクション
+例: workers=3, max_threads=5, abstract_class=1（ApplicationRecordのみ）,
+    role=2（writing/reading）, shard=3 の場合
+  → 3 × 5 × 1 × 2 × 3 = 90コネクション/サーバ
+
+複数のapp serverやSolid Queue worker / sidekiq などのジョブworkerからの
+コネクションも加算する必要があり、これがDBサーバ側の `max_connections` を
+超えないよう余裕を持って設計すること。
+PgBouncer等のexternal poolerを挟むのが現実的な選択。
 
 ```
 
-各プールの`pool`設定値はPumaの`max_threads`以上に設定する必要があります。
+各プールの`pool`設定値はPumaの`max_threads`以上に設定する必要があります（roleやshardごとに別 connection pool が立つため、worker数や process数 と掛け合わせた値ではなく、**1プロセス内の1プールあたりの同時取得数 = max_threads** が基準）。
 
 ```yaml
 

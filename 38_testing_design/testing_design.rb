@@ -842,7 +842,9 @@ module TestingDesign
         },
         let_it_be: {
           description: 'test-prof が提供する before_all ベースの安全な let',
-          mechanism: 'before(:all) でデータを作成し、各テスト後にロールバック',
+          mechanism: 'describe（テストグループ）単位で1度だけデータを作成し、グループ全体を1トランザクションで囲んで ' \
+                     'グループ終了時にまとめてロールバック。例(example)ごとには分離されないため、 ' \
+                     'example間でレコード共有が前提（reload: true で再ロードを強制可能）',
           performance: 'let よりも大幅に高速（特にDB操作を伴う場合）',
           syntax: 'let_it_be(:user) { create(:user) }'
         }

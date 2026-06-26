@@ -183,9 +183,10 @@ module DatabaseLocking
         balance: account.balance,
         lock_version: account.lock_version,
         transaction_result: result,
-        # 悲観的ロックでは lock_version は変更されない
-        # （lock_versionは楽観的ロック専用）
-        note: 'lock!は楽観的ロックのlock_versionとは独立して動作する'
+        # lock! 自体は lock_version を更新しないが、後続の save! は
+        # lock_version カラムがある以上 楽観的ロックチェック+1を行う。
+        # 悲観的ロックと楽観的ロックは独立した仕組みで、同居も可能。
+        note: 'lock!はSELECT FOR UPDATEを発行する。lock_versionの増分は save! 時に楽観的ロックが行う'
       }
     end
 

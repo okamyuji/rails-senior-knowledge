@@ -84,7 +84,7 @@ end
 
 ### report - 例外オブジェクトを直接報告する
 
-既に`rescue`で捕捉済みの例外を、ブロックなしで直接報告します。Rails 7.1で追加されました。
+既に`rescue`で捕捉済みの例外を、ブロックなしで直接報告します。`handle` / `record` と並ぶ第三の主要APIで、Rails 7.0から提供されています。
 
 ```ruby
 
@@ -332,14 +332,23 @@ end
 
 ### 3. テスト環境でのError Reporterの活用
 
+Rails 8.1 では `ActiveSupport::Testing::ErrorReporterAssertions` がフレームワーク標準で提供する `assert_error_reported` / `assert_no_error_reported` ヘルパーを使えます。これらは Minitest 用です。RSpec の `have_reported_error` マッチャは Rails 同梱ではなくコミュニティの gem（例: `rspec-rails` の補助マッチャや個別実装）が提供しているため、利用前にプロジェクトの依存に追加されているかを確認してください。
+
 ```ruby
 
-# テストでError Reporterの挙動を検証します
+# Minitest（Rails標準）
+class OrderServiceTest < ActiveSupport::TestCase
+  test "在庫不足時にエラーが報告される" do
+    report = assert_error_reported(InventoryError) do
+      OrderService.create!(out_of_stock_item)
+    end
+    assert_equal :error, report.severity
+  end
+end
 
+# RSpec（コミュニティマッチャ利用例。Rails 標準には含まれません）
 RSpec.describe OrderService do
   it "在庫不足時にエラーが報告される" do
-    subscriber = ActiveSupport::ErrorReporter::TestHelper
-    # Rails 7.1+のassert_error_reported相当
     expect {
       OrderService.create!(out_of_stock_item)
     }.to have_reported_error(InventoryError)
@@ -409,6 +418,18 @@ ruby -r ./25_error_reporter/error_reporter -e "pp ErrorReporterDemo.demonstrate_
 
 ```
 
+## 補足: Rails 8.1のEvent Reporter（Rails.event）
+
+Rails 8.1では、構造化イベント通知のための新しいAPI `Rails.event`（Event Reporter）が追加されました。Error Reporterがエラー報告に特化しているのに対し、Event Reporterは構造化されたアプリケーションイベント（ユーザー登録、購入完了など）を統一的に発行するためのものです。
+
+```ruby
+
+Rails.event.notify("user.signup", user_id: 123, email: "user@example.com")
+
+```
+
+サブスクライバは`#emit`メソッドを実装し、JSON Lines形式での出力やObservabilityプラットフォームへの連携に活用できます。Error ReporterとEvent Reporterはそれぞれ「異常系」と「正常系」の構造化通知という別の役割を担います。
+
 ## 参考資料
 
 - [Railsガイド - Error
@@ -417,5 +438,5 @@ ruby -r ./25_error_reporter/error_reporter -e "pp ErrorReporterDemo.demonstrate_
   ActiveSupport::ErrorReporter](https://api.rubyonrails.org/classes/ActiveSupport/ErrorReporter.html)
 - [Rails 7.0リリースノート - Error
   Reporter](https://edgeguides.rubyonrails.org/7_0_release_notes.html)
-- [Rails 7.1リリースノート -
-  ErrorReporter#report](https://edgeguides.rubyonrails.org/7_1_release_notes.html)
+- [Rails 8.1リリースノート - Event
+  Reporter](https://edgeguides.rubyonrails.org/8_1_release_notes.html)

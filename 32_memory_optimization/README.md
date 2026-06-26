@@ -90,9 +90,14 @@ a.equal?(b)  # => true（同一オブジェクト）
 
 ```ruby
 
-# Symbolは常に同一オブジェクトです（GCされない永続的な識別子）
-
+# 静的に書かれた `:foo` のような Symbol（immortal symbol）は同一オブジェクトを
+# 共有し、原則としてプロセスが生きている間 GC されない。
 :my_key.equal?(:my_key)  # => true
+
+# Ruby 2.2 以降、文字列から `to_sym` などで動的生成された Symbol
+# （mortal symbol）は GC 対象になっている。よって「Symbol は常に GC されない」
+# は正確ではなく、「静的リテラル Symbol は GC されない」と理解する。
+"my_key#{rand}".to_sym  # → 動的生成、参照が切れれば GC される
 
 # ハッシュキーにはSymbolを推奨します
 
@@ -426,6 +431,34 @@ GC::Profiler.disable
 GC::Profiler.clear
 
 ```
+
+### GC.compact（Ruby 2.7+）
+
+ヒープのコンパクションでメモリ断片化を解消します。Ruby 3.0+
+では`GC.auto_compact = true`で自動コンパクションも有効化できます。Pumaフォーク前に`GC.compact`を呼ぶとCoW共有率が向上し、
+ワーカープロセス間で物理メモリを共有しやすくなります。
+
+```ruby
+
+# 手動コンパクション
+
+GC.compact
+
+# 自動コンパクションの有効化
+
+GC.auto_compact = true
+
+# Pumaフォーク前にコンパクション（config/puma.rb）
+
+before_fork do
+  GC.compact
+end
+
+```
+
+Ruby 3.3+ ではVariable Width
+Allocation（VWA）によりヒープページの内部構造が拡張されています。`GC.stat[:heap_live_slots]`などの統計値はVWA含むスロットを反映するため、
+本番チューニングはRuby 3.4の実環境で再計測してください。
 
 ### derailed_benchmarks gem
 
