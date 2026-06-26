@@ -231,11 +231,11 @@ end
 
 ```
 
-### Ruby 3.2以降で解消された旧制限事項
+### Ruby 2.x 系で段階的に解消された旧制限事項
 
-Ruby 3.1以前では以下の制限がありましたが、Ruby 3.2以降で改善されました。
+導入当初の Refinements は send / respond_to? / method() などのリフレクションAPIから不可視でしたが、複数バージョンに渡って改善されました。Ruby 3.4 では下記すべてが期待通りに動作します。
 
-#### respond_to?がRefinedメソッドを検出するようになりました
+#### respond_to? / public_send が Refinement を検出するようになりました（Ruby 2.6+）
 
 ```ruby
 
@@ -244,13 +244,16 @@ class Demo
 
   def check
     "true".to_boolean               # => true
-    "true".respond_to?(:to_boolean) # Ruby 3.1以前: false / Ruby 3.2+: true
+    "true".respond_to?(:to_boolean) # Ruby 2.5以前: false / Ruby 2.6+: true
+    "true".public_send(:to_boolean) # Ruby 2.5以前: NoMethodError / Ruby 2.6+: true
   end
 end
 
 ```
 
-#### send / public_sendがRefinementを経由するようになりました
+加えて `&` による暗黙的な `Symbol#to_proc` 変換も Ruby 2.6 から Refinement を経由するようになりました（例: `(1..3).map(&:to_boolean)`）。
+
+#### send が Refinement を経由するようになりました（Ruby 2.4+）
 
 ```ruby
 
@@ -258,13 +261,13 @@ class Demo
   using StringExtensions
 
   def via_send
-    "true".send(:to_boolean)  # Ruby 3.1以前: NoMethodError / Ruby 3.2+: true
+    "true".send(:to_boolean)  # Ruby 2.3以前: NoMethodError / Ruby 2.4+: true
   end
 end
 
 ```
 
-#### method()でMethodオブジェクトを取得できるようになりました
+#### method() / instance_method() で Methodオブジェクトを取得できるようになりました（Ruby 2.7+）
 
 ```ruby
 
@@ -272,19 +275,27 @@ class Demo
   using StringExtensions
 
   def get_method
-    "test".method(:to_boolean)  # Ruby 3.1以前: NameError / Ruby 3.2+: Methodオブジェクト
+    "test".method(:to_boolean)  # Ruby 2.6以前: NameError / Ruby 2.7+: Methodオブジェクト
   end
 end
 
 ```
 
+#### Refinement の内省API（Ruby 3.2+）
+
+Ruby 3.2 では Refinement そのものを内省するためのAPIが追加されました。
+
+- `Module#refinements` — そのモジュールが定義する Refinement の一覧
+- `Module.used_refinements` — 現スコープで有効な Refinement の一覧
+- `Refinement#refined_class` — Refinement が拡張しているクラス
+
 ### 古いバージョンとの互換性が必要な場合の回避策
 
-Ruby 3.1以前をサポートする必要がある場合は、以下の回避策を検討してください。
+Ruby 2.5 以前をサポートする必要がある場合は、以下の回避策を検討してください。
 
 ```ruby
 
-# respond_to?の代替: 定数フラグを用意する
+# Ruby 2.5以前向け respond_to?の代替: 定数フラグを用意する
 
 module StringExtensions
   AVAILABLE = true

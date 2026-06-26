@@ -30,18 +30,25 @@ Railsアプリケーションでは、レスポンスタイムに影響する重
 ```ruby
 
 class OrderConfirmationJob < ApplicationJob
+  # 1つのRedis接続を共有するためにイニシャライザで $redis などに用意しておくか、
+  # コネクションプール経由（ConnectionPool）で取得します。
+  # `Redis.current` は redis-rb 4.6 で非推奨、5.0 で削除されたため使いません。
+  REDIS = ConnectionPool.new(size: 5) { Redis.new }
+
   def perform(order_id)
     order = Order.find(order_id)
     idempotency_key = "order_confirmation:#{order_id}"
 
-    # Redisを使った冪等性チェック
-    return if Redis.current.exists?(idempotency_key)
+    REDIS.with do |redis|
+      # 既に処理済みなら何もしません（at least once 配信に対する防御）
+      return if redis.exists?(idempotency_key) == 1
 
-    # 処理を実行します
-    OrderMailer.confirmation(order).deliver_now
+      # 処理を実行します
+      OrderMailer.confirmation(order).deliver_now
 
-    # 処理済みフラグを設定します（TTL付き）
-    Redis.current.set(idempotency_key, "1", ex: 24.hours.to_i)
+      # 処理済みフラグを設定します（TTL付き）
+      redis.set(idempotency_key, "1", ex: 24.hours.to_i)
+    end
   end
 end
 
@@ -197,27 +204,28 @@ user.to_global_id.to_s  # => "gid://myapp/User/42"
 
 ### 2. ジョブタイムアウト
 
+Sidekiq OSS の `sidekiq_options` には `timeout` オプションは存在しません（`queue` / `retry` /
+`dead` / `backtrace` / `tags` などが正規のキーです）。ジョブ全体のタイムアウトを設けたい場合は、外部 I/O
+側にタイムアウトを設定するか、ジョブを細かく分割するのが推奨です。`Timeout.timeout` は `Thread#raise`
+を利用するため、ロック中の処理を強制中断するとデータ整合性を破る可能性があります。`Net::HTTP` の
+`open_timeout`/`read_timeout` のように、ライブラリ固有のタイムアウトを優先してください。
+
 ```ruby
 
 class ImageProcessingJob < ApplicationJob
-  # Sidekiqの場合
-  sidekiq_options timeout: 120
-
-  # Solid Queueの場合（Rails 8）
+  # Solid Queueの場合（Rails 8）: 同時実行数を制限します
   limits_concurrency to: 5, key: ->(*) { "image_processing" }
 
   def perform(image_id)
     image = Image.find(image_id)
 
-    # 個別の外部呼び出しにもタイムアウトを設定します
-    processed = Timeout.timeout(90) do
-      ImageProcessor.process(image.file)
-    end
+    # 個別の外部呼び出しごとにライブラリのタイムアウトを使います
+    processed = ImageProcessor.process(image.file, timeout_seconds: 90)
 
     image.update!(processed_file: processed, status: :completed)
-  rescue Timeout::Error
+  rescue ImageProcessor::TimeoutError
     image.update!(status: :timeout_failed)
-    raise  # リトライに委ねます
+    raise # リトライに委ねます
   end
 end
 
@@ -339,7 +347,10 @@ end
 
 ### サーキットブレーカーパターン
 
-外部サービスが停止している場合、リトライを繰り返すのではなく、一定期間ジョブの実行を停止します。
+外部サービスが停止している場合、リトライを繰り返すのではなく、一定期間ジョブの実行を停止します。実装には
+`stoplight` や `circuitbox`、HTTPクライアントなら `faraday-retry` の組み合わせなどコミュニティ製の
+Gem を使うのが手堅い選択です。以下は概念実装の例で、Redis 接続は専用クライアントを渡しています
+（`Redis.current` は使わないこと）。
 
 ```ruby
 
@@ -367,18 +378,23 @@ class ExternalApiJob < ApplicationJob
 
   private
 
+  def redis
+    # アプリ起動時に用意した Redis クライアント or プールを参照します
+    $redis
+  end
+
   def circuit_open?
-    failure_count = Redis.current.get(CIRCUIT_BREAKER_KEY).to_i
+    failure_count = redis.get(CIRCUIT_BREAKER_KEY).to_i
     failure_count >= FAILURE_THRESHOLD
   end
 
   def record_failure
-    Redis.current.incr(CIRCUIT_BREAKER_KEY)
-    Redis.current.expire(CIRCUIT_BREAKER_KEY, RECOVERY_TIME.to_i)
+    redis.incr(CIRCUIT_BREAKER_KEY)
+    redis.expire(CIRCUIT_BREAKER_KEY, RECOVERY_TIME.to_i)
   end
 
   def reset_circuit
-    Redis.current.del(CIRCUIT_BREAKER_KEY)
+    redis.del(CIRCUIT_BREAKER_KEY)
   end
 end
 
@@ -399,7 +415,9 @@ ActiveSupport::Notifications.subscribe("perform.active_job") do |event|
   StatsD.increment("jobs.#{job.class.name}.performed")
 
   # 異常に時間がかかったジョブをアラートします
-  if duration > job.class.try(:expected_duration) || 60_000
+  # 演算子の優先順位に注意: `>` は `||` より優先されるため、しきい値全体を括弧で囲みます。
+  expected = job.class.try(:expected_duration) || 60_000
+  if duration > expected
     Rails.logger.warn("ジョブが想定時間を超過しました: #{job.class.name} (#{duration}ms)")
   end
 end
@@ -417,7 +435,8 @@ end
 ## Solid Queue（Rails 8）での実装
 
 Rails 8ではSolid
-Queueがデフォルトのジョブバックエンドとなりました。データベースをキューストレージとして使用し、Redisなどの外部依存を排除しています。
+Queueがデフォルトのジョブバックエンドとなりました。データベースをキューストレージとして使用し、Redisなどの外部依存を排除しています。Solid
+Queue 専用の起動コマンドとして `bin/jobs`（`rails solid_queue:start` のラッパー）が標準で生成されます。
 
 ```ruby
 

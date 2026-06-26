@@ -293,7 +293,7 @@ module MultiDbSharding
   # 4. ホリゾンタルシャーディング: テナント別データ分散
   # ==========================================================================
   #
-  # Rails 6.1+ ではconnects_toでシャードを定義し、
+  # Rails 6.1+ ではconnects_toのshards:キーでシャードを定義し、
   # connected_to(shard:)で動的にシャードを切り替えられる。
   #
   # database.yml の設定例:
@@ -412,7 +412,7 @@ module MultiDbSharding
   module ShardSelection
     # シャード選択のミドルウェアパターンを説明する
     #
-    # Rails 7.1+ では ShardSelector ミドルウェアが提供されている。
+    # Rails 6.1+ では ShardSelector ミドルウェアが提供されている。
     # カスタムロジックでテナントからシャードを解決し、
     # リクエスト全体で一貫したシャード接続を使用する。
     def self.demonstrate_shard_middleware_pattern
@@ -435,8 +435,9 @@ module MultiDbSharding
           '5. ブロック終了で元のコンテキストに復帰'
         ],
         # lock オプション
+        # ShardSelector の lock オプションのデフォルトは true（Rails 6.1+ 仕様）
         lock_option: {
-          true => 'ブロック内でシャードの切り替えを禁止（安全）',
+          true => 'ブロック内でシャードの切り替えを禁止（デフォルト・安全）',
           false => 'ブロック内でも connected_to でシャードを切り替え可能'
         }
       }

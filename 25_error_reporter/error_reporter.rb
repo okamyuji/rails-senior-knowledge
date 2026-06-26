@@ -213,7 +213,7 @@ module ErrorReporterDemo
     # --- report: 例外オブジェクトを直接報告する ---
     #
     # ブロックを使わずに、既に捕捉済みの例外オブジェクトを報告する。
-    # Rails 7.1 で追加された API。
+    # handle / record と並ぶ第三の主要 API で、Rails 7.0 から提供されている。
     #
     # 用途:
     # - rescue 節で既に例外を捕捉済みの場合

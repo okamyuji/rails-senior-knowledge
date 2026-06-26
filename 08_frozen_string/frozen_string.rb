@@ -85,8 +85,13 @@ module FrozenStringLiteral
   # 文字列リテラルが「Chilled（冷却された）」状態になる。
   #
   # Chilled String の特徴:
-  # - frozen? は true を返す
-  # - 破壊的操作を行うと、即座に FrozenError ではなく警告を出してから実行
+  # - frozen? は false を返す（=ミュータブル）
+  #   ※ Ruby 3.4-preview1 では true を返す実装だったが、
+  #     `str = str.dup if str.frozen?` のような既存パターンを誤動作させないため、
+  #     正式リリース前に false に戻された
+  # - 破壊的操作は成功するが、deprecation 警告が出る
+  #   （-W:deprecated もしくは Warning[:deprecated] = true で有効化）
+  # - --debug-frozen-string-literal で発生箇所のスタックトレースを取得できる
   # - 将来のRubyバージョンでデフォルトフリーズに完全移行するための橋渡し
   #
   # これにより、既存コードを段階的に frozen_string_literal: true に
@@ -97,27 +102,33 @@ module FrozenStringLiteral
     # 実際のChilled Stringの動作はプラグマなしのファイルでのみ確認可能
     #
     # Chilled Stringのライフサイクル:
-    # 1. リテラル作成時: frozen状態（chilled）
-    # 2. 破壊的操作時: 警告を出してunfreezeし、操作を実行
-    # 3. 操作後: 通常のミュータブル文字列として振る舞う
+    # 1. リテラル作成時: ミュータブル（frozen? は false）だが内部的にchilledマーク
+    # 2. 破壊的操作時: deprecation警告を出してから操作を実行
+    # 3. 操作後: 通常のミュータブル文字列として振る舞う（frozen? は引き続き false）
     def self.explain_chilled_behavior
       <<~EXPLANATION
         Ruby 3.4 Chilled String の動作:
 
         # frozen_string_literal プラグマなしのファイルで:
         str = "hello"
-        str.frozen?        # => true（chilled状態）
+        str.frozen?        # => false（chilledだがミュータブル）
 
         # 破壊的操作を試みると:
         str << " world"    # => warning: literal string will be frozen in the future
-                           #    (ただし操作は成功する)
+                           #    (操作自体は成功し、変更も反映される)
 
-        str.frozen?        # => false（unfreezeされた）
+        str.frozen?        # => false（引き続きミュータブル）
         str                # => "hello world"
 
         # frozen_string_literal: true のファイルでは:
         str = "hello"
         str << " world"    # => FrozenError（即座にエラー）
+
+        # 警告の有効化:
+        #   ruby -W:deprecated app.rb
+        #   または Warning[:deprecated] = true
+        # 発生箇所の詳細:
+        #   ruby --debug-frozen-string-literal app.rb
       EXPLANATION
     end
 
@@ -132,7 +143,7 @@ module FrozenStringLiteral
         'Ruby 3.4' => {
           pragma_true: '文字列リテラルはフリーズ、破壊的操作でFrozenError',
           pragma_false: '文字列リテラルはミュータブル、自由に変更可能',
-          no_pragma: '文字列リテラルはChilled、破壊的操作で警告後に実行'
+          no_pragma: '文字列リテラルはChilled（frozen?はfalse、変更時にdeprecation警告）'
         },
         '将来のRuby' => {
           expected: '全文字列リテラルがデフォルトでフリーズ（FrozenError）'

@@ -12,7 +12,7 @@ require 'weakref'
 # このモジュールでは以下のトピックを扱う:
 # - 世代別GC（マイナーGC / メジャーGC）
 # - GC.stat による統計情報の読み取り
-# - GC.compact によるヒープコンパクション（Ruby 3.x）
+# - GC.compact によるヒープコンパクション（Ruby 2.7+）/ GC.auto_compact（Ruby 3.0+）
 # - GCチューニング用環境変数
 # - 弱参照（WeakRef / ObjectSpace::WeakMap）
 # - オブジェクト割り当て追跡
@@ -100,8 +100,9 @@ module GcInternals
 
   # === GC.compact（ヒープコンパクション） ===
   #
-  # Ruby 3.x で導入されたGC.compactは、ヒープ内のオブジェクトを
-  # 再配置してメモリの断片化を軽減する。
+  # Ruby 2.7 で導入された GC.compact は、ヒープ内のオブジェクトを
+  # 再配置してメモリの断片化を軽減する。Ruby 3.0 では GC.auto_compact が
+  # 追加され、自動コンパクション設定も可能になった。
   #
   # メモリ断片化とは:
   # - オブジェクトの割り当てと解放を繰り返すと、ヒープ内に空き領域が散在する

@@ -218,7 +218,7 @@ end
 利点: データが均等に分散されます
 注意: シャード数の変更時にリバランシングが必要です
 
-### ShardSelectorミドルウェア（Rails 7.1+）
+### ShardSelectorミドルウェア（Rails 6.1+）
 
 ```ruby
 
@@ -233,7 +233,7 @@ config.active_record.shard_resolver = ->(request) {
 ```
 
 `lock:
-true`を設定すると、ミドルウェアが設定したシャード内で`connected_to(shard:)`による切り替えが禁止されます。これにより、
+true`はデフォルト値で、ミドルウェアが設定したシャード内で`connected_to(shard:)`による切り替えが禁止されます。これにより、
 テナントのデータが意図せず別シャードに書き込まれることを防ぎます。
 
 ### クロスシャードクエリ

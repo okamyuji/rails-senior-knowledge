@@ -209,7 +209,7 @@ Sidekiqが適切な場合は以下の通りです。
 
 ## 本番運用設定
 
-### 基本設定（config/solid_queue.yml）
+### 基本設定（config/queue.yml）
 
 ```yaml
 

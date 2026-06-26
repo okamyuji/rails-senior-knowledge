@@ -567,7 +567,7 @@ module SolidQueueInternals
   #
   # Solid Queue のワーカーは定期的にデータベースをポーリングしてジョブを取得する。
   #
-  # 設定例（config/solid_queue.yml）:
+  # 設定例（config/queue.yml）:
   #   production:
   #     dispatchers:
   #       - polling_interval: 1    # 1秒ごとにポーリング

@@ -70,9 +70,15 @@ Record.find_each(batch_size: 1000) do |record|
   record.update!(processed: true)
 end
 
-# start/finishでID範囲を指定します（再開や並列処理に有用）
+# start/finishでカーソル値の範囲を指定します（再開や並列処理に有用）
 
 Record.find_each(start: 10001, finish: 20000) do |record|
+  process(record)
+end
+
+# Rails 7.1+: cursor で任意の列、order で方向を指定できます
+
+Record.find_each(cursor: :created_at, order: :desc) do |record|
   process(record)
 end
 
@@ -82,7 +88,7 @@ end
 
 1. `SELECT * FROM records WHERE id > ? ORDER BY id ASC LIMIT 1000`を発行します
 2. 各レコードを1件ずつブロックにyieldします
-3. バッチの最後のIDを記録し、次のバッチのWHERE条件に使用します
+3. バッチの最後のカーソル値を記録し、次のバッチのWHERE条件に使用します
 
 適したユースケースは以下の通りです。
 

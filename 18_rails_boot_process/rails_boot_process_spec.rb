@@ -175,8 +175,8 @@ RSpec.describe RailsBootProcess do
       expect(result[:bootsnap][:loaded]).to eq(defined?(Bootsnap) ? true : false)
     end
 
-    it 'Spring が Rails 7.1 でデフォルトから除外されたことを確認する' do
-      expect(result[:spring][:status]).to include('7.1')
+    it 'Spring が Rails 7.0 でデフォルトから除外されたことを確認する' do
+      expect(result[:spring][:status]).to include('7.0')
     end
 
     it 'Gemfile 最適化の require: false パターンが説明されていることを確認する' do

@@ -53,13 +53,14 @@ Solid Cacheは `solid_cache_entries` テーブルを使用します。
 
 CREATE TABLE solid_cache_entries (
   id         BIGINT PRIMARY KEY AUTO_INCREMENT,
-  key        VARCHAR(1024) NOT NULL,     -- SHA256ハッシュ化されたキー
+  key        BLOB NOT NULL,              -- 生のキャッシュキー（バイナリ、最大1024バイト）
   value      BLOB NOT NULL,              -- シリアライズされた値（最大512MB）
+  created_at DATETIME(6) NOT NULL,       -- 作成日時（FIFOの基準）
+  key_hash   BIGINT NOT NULL,            -- キーの64bitハッシュ（インデックス用）
   byte_size  INTEGER NOT NULL,           -- エントリ全体のバイトサイズ
-  created_at DATETIME NOT NULL,          -- 作成日時（FIFOの基準）
 
-  UNIQUE INDEX (key),
-  INDEX (key, byte_size),
+  UNIQUE INDEX (key_hash),
+  INDEX (key_hash, byte_size),
   INDEX (byte_size)
 );
 
@@ -68,8 +69,10 @@ CREATE TABLE solid_cache_entries (
 重要な設計上の特徴は以下の通りです。
 
 - `updated_at` カラムが存在しません。FIFOではアクセス時のタイムスタンプ更新が不要なためです
-- `key` はハッシュ化されています。任意長のキーを固定長（48バイト）に正規化してインデックス効率を向上させています
+- 検索用インデックスは可変長の `key` ではなく、固定長の `key_hash`（8バイトのbigint）に張られます。これにより任意長のキーに対してインデックス効率を確保しています
 - `byte_size` を記録しています。エビクション判断を高速に行うためのメタデータです
+
+なお本リポジトリの教育用実装 (`solid_cache.rb`) では概念を分かりやすくするため、`key_hash` を分離せず `key` カラムに SHA-256 ハッシュ（接頭辞付き 48 文字）を入れる簡略形にしています。
 
 ### キャッシュエントリのライフサイクル
 

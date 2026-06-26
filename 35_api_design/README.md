@@ -185,6 +185,30 @@ end
 
 ## レート制限
 
+### ActionController::RateLimiting（Rails 7.2+）
+
+Rails 7.2で`ActionController`に組み込みのレート制限が追加され、Rails 8では複数の`rate_limit`宣言にも対応しました。`Rails.cache`（`Solid
+Cache`含む）を使うため、追加の Gem なしで小規模なレート制限を実装できます。
+
+```ruby
+
+class SessionsController < ApplicationController
+  # 1分あたり10リクエストまで（超過時は ActionController::TooManyRequests）
+  rate_limit to: 10, within: 1.minute, only: :create
+
+  # `by:` で識別子を切り替え（デフォルトはリモートIP）。
+  # `with:` で429以外のレスポンスをカスタマイズします。
+  rate_limit to: 100, within: 1.hour,
+             by: ->(req) { req.headers["X-API-Key"] },
+             with: -> { render json: { error: "rate_limited" }, status: :too_many_requests },
+             only: :create
+end
+
+```
+
+Rails標準は実装がシンプルなので、複数キーやIP単位＋APIキー単位の組み合わせなど高度な制御を求める場合は
+`rack-attack` を併用するのが現実的です。
+
 ### トークンバケットアルゴリズム
 
 最も広く使われるレート制限アルゴリズムです。バースト的なトラフィックを許容しつつ、長期的なレートを制限します。

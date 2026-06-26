@@ -427,6 +427,34 @@ GC::Profiler.clear
 
 ```
 
+### GC.compact（Ruby 2.7+）
+
+ヒープのコンパクションでメモリ断片化を解消します。Ruby 3.0+
+では`GC.auto_compact = true`で自動コンパクションも有効化できます。Pumaフォーク前に`GC.compact`を呼ぶとCoW共有率が向上し、
+ワーカープロセス間で物理メモリを共有しやすくなります。
+
+```ruby
+
+# 手動コンパクション
+
+GC.compact
+
+# 自動コンパクションの有効化
+
+GC.auto_compact = true
+
+# Pumaフォーク前にコンパクション（config/puma.rb）
+
+before_fork do
+  GC.compact
+end
+
+```
+
+Ruby 3.3+ ではVariable Width
+Allocation（VWA）によりヒープページの内部構造が拡張されています。`GC.stat[:heap_live_slots]`などの統計値はVWA含むスロットを反映するため、
+本番チューニングはRuby 3.4の実環境で再計測してください。
+
 ### derailed_benchmarks gem
 
 ```bash

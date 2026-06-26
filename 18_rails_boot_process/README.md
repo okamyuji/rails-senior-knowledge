@@ -47,7 +47,7 @@ Bundler.require(*Rails.groups)
 
 module MyApp
   class Application < Rails::Application
-    config.load_defaults 8.0
+    config.load_defaults 8.1
     config.time_zone = "Tokyo"
     # ... その他の設定
   end
@@ -349,7 +349,7 @@ require "sidekiq"
 
 ### Spring（非推奨ですが知識として重要です）
 
-Rails 7.1でデフォルトから除外されました。開発環境でアプリケーションプロセスをバックグラウンドで維持し、コマンド起動を高速化するプリローダーでした。
+Rails 7.0でデフォルトGemfileから除外されました（rails/rails#42997 がRails 7.0に取り込まれました）。開発環境でアプリケーションプロセスをバックグラウンドで維持し、コマンド起動を高速化するプリローダーでした。
 
 除外された理由は以下の通りです。
 

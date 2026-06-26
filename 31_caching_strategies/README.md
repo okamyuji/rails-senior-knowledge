@@ -58,7 +58,7 @@ end
 
 Rails.cache.fetch("data", force: true) { recompute_data }
 
-# skip_nil: trueでnil結果のキャッシュ汚染を防止します（Rails 7.1+）
+# skip_nil: trueでnil結果のキャッシュ汚染を防止します
 
 Rails.cache.fetch("api_response", skip_nil: true) do
   ExternalApi.fetch_data rescue nil

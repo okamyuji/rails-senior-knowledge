@@ -527,23 +527,33 @@ module RackMiddleware
   # Rails は ActionDispatch::MiddlewareStack でミドルウェアを管理する。
   # `rails middleware` コマンドでスタック全体を確認できる。
   #
-  # 主な Rails ミドルウェア（実行順）:
+  # 主な Rails 8.1 ミドルウェア（実行順）:
   #
-  # ActionDispatch::HostAuthorization    - 許可ホストの検証
-  # Rack::Sendfile                       - X-Sendfile による静的ファイル配信
-  # ActionDispatch::Executor             - リクエストごとのリロード管理
-  # ActionDispatch::RequestId            - X-Request-Id ヘッダーの付与
-  # ActionDispatch::RemoteIp             - 信頼できるプロキシ経由の IP 取得
-  # Rails::Rack::Logger                  - リクエストログの出力
-  # ActionDispatch::ShowExceptions       - 例外をエラーページに変換
-  # ActionDispatch::Callbacks            - before/after コールバック
-  # ActionDispatch::Cookies              - Cookie の読み書き
-  # ActionDispatch::Session::CookieStore - セッション管理
-  # ActionDispatch::Flash                - flash メッセージ
-  # ActionDispatch::ContentSecurityPolicy - CSP ヘッダー
-  # Rack::Head                           - HEAD リクエストの body 除去
-  # Rack::ConditionalGet                 - ETag/Last-Modified による 304
-  # Rack::ETag                           - ETag の自動生成
+  # ActionDispatch::HostAuthorization                  - 許可ホストの検証
+  # Rack::Sendfile                                     - X-Sendfile による静的ファイル配信
+  # ActionDispatch::Static                             - public/ 配下の静的ファイル配信
+  # ActionDispatch::Executor                           - リクエストごとのリロード管理
+  # ActionDispatch::ServerTiming                       - Server-Timing ヘッダーの付与
+  # ActiveSupport::Cache::Strategy::LocalCache::Middleware - リクエスト内のローカルキャッシュ
+  # Rack::Runtime                                      - X-Runtime ヘッダーの付与
+  # Rack::MethodOverride                               - _method パラメータによる HTTP メソッド上書き
+  # ActionDispatch::RequestId                          - X-Request-Id ヘッダーの付与
+  # ActionDispatch::RemoteIp                           - 信頼できるプロキシ経由の IP 取得
+  # Rails::Rack::Logger                                - リクエストログの出力
+  # ActionDispatch::ShowExceptions                     - 例外をエラーページに変換
+  # ActionDispatch::DebugExceptions                    - 開発環境での例外詳細表示
+  # ActionDispatch::ActionableExceptions               - 例外画面からのアクション実行（Rails 6+）
+  # ActionDispatch::Reloader                           - コード変更時の自動リロード
+  # ActionDispatch::Callbacks                          - before/after コールバック
+  # ActiveRecord::Migration::CheckPending              - 未実行マイグレーションの検知
+  # ActionDispatch::Cookies                            - Cookie の読み書き
+  # ActionDispatch::Session::CookieStore               - セッション管理
+  # ActionDispatch::Flash                              - flash メッセージ
+  # ActionDispatch::ContentSecurityPolicy::Middleware  - CSP ヘッダー
+  # Rack::Head                                         - HEAD リクエストの body 除去
+  # Rack::ConditionalGet                               - ETag/Last-Modified による 304
+  # Rack::ETag                                         - ETag の自動生成
+  # Rack::TempfileReaper                               - リクエスト終了時の一時ファイル回収
   #
   # カスタムミドルウェアの追加方法:
   #   config.middleware.use    MyMiddleware        # スタック末尾に追加

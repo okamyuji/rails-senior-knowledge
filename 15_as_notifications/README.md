@@ -311,6 +311,62 @@ end
 
 ```
 
+## Rails 8.1 新機能: 構造化イベントレポーター（Rails.event）
+
+Rails 8.1では `ActiveSupport::Notifications` とは別に、機械可読な構造化イベントを発行するための新APIとして
+`ActiveSupport::EventReporter` が導入されました。`Rails.event` 経由でアクセスでき、
+ログ（人間向け）と分離した「機械向けイベント」を統一的に発行する用途を目指しています。
+
+```ruby
+
+# 構造化イベントの発行
+Rails.event.notify("user.signup", user_id: 123, email: "alice@example.com")
+
+# タグ付け（イベントに共通コンテキストを付与）
+Rails.event.tagged("graphql") do
+  Rails.event.notify("query.executed", duration_ms: 12.3)
+end
+
+# コンテキストの設定（Fiber-localで保持）
+Rails.event.set_context(request_id: "abc-123")
+
+```
+
+サブスクライバーは `#emit(event)` を実装したオブジェクトを登録します。
+
+```ruby
+
+class JsonEventSubscriber
+  def emit(event)
+    payload = {
+      name: event.name,
+      payload: event.payload,
+      tags: event.tags,
+      context: event.context,
+      timestamp: event.timestamp
+    }
+    Rails.logger.info(payload.to_json)
+  end
+end
+
+Rails.event.subscribe(JsonEventSubscriber.new)
+
+```
+
+`ActiveSupport::Notifications` との使い分けは以下の通りです。
+
+| 用途 | 推奨API
+| ------ | ------
+| パフォーマンス計装（duration計測） | `ActiveSupport::Notifications.instrument`
+| 構造化イベントの発行（ビジネスイベント、監査） | `Rails.event.notify`
+| APMやログ収集ツールへの統合 | 両方が併用可能
+
+設定は `config.active_support.event_reporter_context_store` で
+コンテキストストア（デフォルトは `ActiveSupport::EventContext`、Fiber-local）を切り替えられます。
+
+詳細は [Rails 8.1 リリースノート](https://guides.rubyonrails.org/8_1_release_notes.html#structured-event-reporting)
+を参照してください。
+
 ## 実行方法
 
 ```bash

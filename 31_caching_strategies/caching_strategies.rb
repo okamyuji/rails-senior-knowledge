@@ -179,9 +179,10 @@ module CachingStrategies
 
     # fetchの条件付きキャッシュ（skip_nil）
     #
-    # Rails 7.1+ では skip_nil: true を指定すると、
+    # skip_nil: true を指定すると、
     # ブロックがnilを返した場合にキャッシュへの書き込みをスキップする。
     # これにより、一時的な障害でnilが返された場合にキャッシュが汚染されるのを防ぐ。
+    # ActiveSupport::Cache::Store#fetch の組み込みオプション。
     #
     # @return [Hash] skip_nilの動作結果
     def self.demonstrate_fetch_skip_nil

@@ -232,17 +232,25 @@ end
 
 ### Rails標準（Minitest）
 
+Rails 6以降、Minitestには`parallelize`が組み込まれており、プロセスフォーク（デフォルト）またはスレッドで並列化できます。実行コマンドは`bin/rails
+test`（Rails 5.2+）が標準で、`bin/rails test:system` や `bin/rails test path/to/file.rb:42` のように行番号指定も可能です。
+
 ```ruby
 
 # test/test_helper.rb
 
 class ActiveSupport::TestCase
+  # ワーカー数を CPU コア数に合わせる。:threads でスレッド並列も選べます。
   parallelize(workers: :number_of_processors)
 
   # プロセス並列化時のフック
   parallelize_setup do |worker|
-    # ワーカーごとの初期化処理
+    # ワーカーごとの初期化処理（ActiveStorageのストレージ分離など）
     ActiveStorage::Blob.service.root = "#{ActiveStorage::Blob.service.root}-#{worker}"
+  end
+
+  parallelize_teardown do |worker|
+    # 後片付け（一時ファイルの削除など）
   end
 end
 

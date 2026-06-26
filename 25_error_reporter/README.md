@@ -84,7 +84,7 @@ end
 
 ### report - 例外オブジェクトを直接報告する
 
-既に`rescue`で捕捉済みの例外を、ブロックなしで直接報告します。Rails 7.1で追加されました。
+既に`rescue`で捕捉済みの例外を、ブロックなしで直接報告します。`handle` / `record` と並ぶ第三の主要APIで、Rails 7.0から提供されています。
 
 ```ruby
 
@@ -409,6 +409,18 @@ ruby -r ./25_error_reporter/error_reporter -e "pp ErrorReporterDemo.demonstrate_
 
 ```
 
+## 補足: Rails 8.1のEvent Reporter（Rails.event）
+
+Rails 8.1では、構造化イベント通知のための新しいAPI `Rails.event`（Event Reporter）が追加されました。Error Reporterがエラー報告に特化しているのに対し、Event Reporterは構造化されたアプリケーションイベント（ユーザー登録、購入完了など）を統一的に発行するためのものです。
+
+```ruby
+
+Rails.event.notify("user.signup", user_id: 123, email: "user@example.com")
+
+```
+
+サブスクライバは`#emit`メソッドを実装し、JSON Lines形式での出力やObservabilityプラットフォームへの連携に活用できます。Error ReporterとEvent Reporterはそれぞれ「異常系」と「正常系」の構造化通知という別の役割を担います。
+
 ## 参考資料
 
 - [Railsガイド - Error
@@ -417,5 +429,5 @@ ruby -r ./25_error_reporter/error_reporter -e "pp ErrorReporterDemo.demonstrate_
   ActiveSupport::ErrorReporter](https://api.rubyonrails.org/classes/ActiveSupport/ErrorReporter.html)
 - [Rails 7.0リリースノート - Error
   Reporter](https://edgeguides.rubyonrails.org/7_0_release_notes.html)
-- [Rails 7.1リリースノート -
-  ErrorReporter#report](https://edgeguides.rubyonrails.org/7_1_release_notes.html)
+- [Rails 8.1リリースノート - Event
+  Reporter](https://edgeguides.rubyonrails.org/8_1_release_notes.html)

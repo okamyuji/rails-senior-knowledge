@@ -23,11 +23,17 @@ module SolidCacheInternals
     # Solid Cacheのテーブルスキーマをインメモリ SQLite に構築する
     # 実際のSolid Cacheは solid_cache_entries テーブルを使用する
     #
-    # スキーマの要点:
-    # - key: キャッシュキーのSHA256ハッシュ（固定長42バイト、Base64エンコード）
+    # 教育用簡略版スキーマの要点:
+    # - key: キャッシュキーのSHA256ハッシュ（固定長48バイト、Base64+接頭辞）
     # - value: シリアライズされたキャッシュ値（BLOB）
     # - byte_size: エントリ全体のバイトサイズ（key + value）
     # - created_at: 作成日時（FIFOエビクションの基準）
+    #
+    # 実際のSolid Cache（gem版）のスキーマとの違い:
+    # - 本物では key は生のバイナリ（最大1024バイト）として保存され、
+    #   検索用インデックスは別カラム key_hash（bigint=64bitハッシュ）に張られる。
+    #   ここでは概念を簡潔に示すため key カラムにハッシュ済み文字列を入れて
+    #   そのまま検索する形式に統合している。
     #
     # 注意: Solid Cacheはupdated_atを持たない。これはLRUではなくFIFO戦略の
     # 設計上の選択であり、読み取り時にタイムスタンプを更新する必要がないため、

@@ -476,10 +476,15 @@ module QueryPlanAnalysis
   #
   # 使い方:
   #   User.where(name: "Alice").explain
-  #   → EXPLAIN QUERY PLAN を実行して結果を文字列として返す
+  #   → 内部的にEXPLAINクエリを実行し、ExplainProxyを返す
+  #     （Rails 7.1+ で ExplainProxy 化された）
   #
   # Rails 7.1+ では explain(:analyze) でEXPLAIN ANALYZEも実行可能
-  # （PostgreSQL/MySQLで実際の実行統計を取得）
+  # （PostgreSQL/MySQLで実際の実行統計を取得。例: query.explain(:analyze, :verbose)）
+  #
+  # 補足: Rails 7.0+ の load_async と組み合わせて、
+  #   QpModels::Product.where(...).load_async としておけば、
+  #   後段の to_a 等が別スレッドで先行実行される。EXPLAIN は同期的に走る。
   def demonstrate_activerecord_explain
     seed_test_data
 
@@ -597,7 +602,7 @@ module QueryPlanAnalysis
   # ==========================================================================
 
   # ExplainProxyからクエリプラン文字列を取得するヘルパー
-  # Rails 8.1ではexplainがExplainProxyを返し、inspectで実際のプランが取得できる
+  # Rails 7.1+ ではexplainがExplainProxyを返し、inspectで実際のプランが取得できる
   def explain_to_s(explain_proxy)
     explain_proxy.inspect
   end

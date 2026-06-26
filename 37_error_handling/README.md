@@ -373,9 +373,9 @@ end
 
 ## エラー報告と監視
 
-### Rails 7.1+のErrorReporter
+### Rails 7+のErrorReporter
 
-Rails 7.1以降では`Rails.error`を使ってアプリケーション全体で統一的にエラーを報告できます。
+Rails 7.0以降は`Rails.error`（`ActiveSupport::ErrorReporter`）を使ってアプリケーション全体で統一的にエラーを報告できます（`set_context`や複数サブスクライバー登録は7.1以降でAPIが拡張されています）。
 
 ```ruby
 
@@ -405,6 +405,31 @@ rescue ExternalServiceError => e
 end
 
 ```
+
+### Rails 8.1のEvent Reporter（Rails.event）
+
+Rails 8.1で構造化イベント送信のための`Rails.event`（`ActiveSupport::EventReporter`）が追加されました。エラー報告に限らずビジネスイベント・テレメトリーまでを「構造化イベント」として一元的に扱えます。エラーレポーターと併用すると、障害発生前後の文脈を含めて観測しやすくなります。
+
+```ruby
+
+# 構造化イベントを通知します
+Rails.event.notify("payment.charged", user_id: 42, amount: 1000, currency: "JPY")
+
+# タグやコンテキストを束ねます
+Rails.event.set_context(request_id: request.request_id)
+Rails.event.tagged("checkout") do
+  Rails.event.notify("payment.attempted", user_id: 42)
+end
+
+# テスト側のヘルパー
+assert_events_reported("payment.charged") do
+  PaymentService.charge(user, 1000)
+end
+
+```
+
+サブスクライバーは`Rails.event.subscribe(MyJsonLineSubscriber.new)`のように登録し、独自フォーマット（JSON
+Lines、OTLP、Datadog等）で送出します。
 
 ### 構造化されたエラーデータ
 
