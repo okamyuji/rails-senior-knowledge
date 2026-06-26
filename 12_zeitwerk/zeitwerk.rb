@@ -214,8 +214,10 @@ module ZeitwerkAutoloader
         },
         collapse: {
           method: 'loader.collapse(dir)',
-          description: 'ディレクトリを名前空間として扱わない（フラット化）',
-          example: 'loader.collapse("app/models/concerns")'
+          description: 'ディレクトリを名前空間として扱わない（フラット化）。Rails の ' \
+                       'app/{models,controllers}/concerns は collapse ではなく ' \
+                       'ネストrootで処理される点に注意',
+          example: 'loader.collapse("lib/myapp/shared")'
         }
       }
     end

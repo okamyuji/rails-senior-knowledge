@@ -159,12 +159,18 @@ def check_g_commands(file, line_no, line)
 end
 
 def check_h_consistency(file, line_no, line)
+  return unless file.include?('zeitwerk')
+
   # H1: zeitwerkの collapse 例で Concerns::Searchable がコード側に残存
-  return unless file.end_with?('.rb') && file.include?('zeitwerk')
+  if line =~ /['"]Concerns::Searchable['"]/
+    violation('H1', file, line_no, line, 'zeitwerk collapse例は plain Zeitwerk (Myapp::Foo) に統一済み')
+  end
 
-  return unless line =~ /['"]Concerns::Searchable['"]/
+  # H2: loader.collapse の引数に app/models/concerns / app/controllers/concerns を渡す例
+  return unless line =~ %r{loader\.collapse\(["']app/(models|controllers)/concerns}
 
-  violation('H1', file, line_no, line, 'zeitwerk collapse例は plain Zeitwerk (Myapp::Foo) に統一済み')
+  violation('H2', file, line_no, line,
+            'loader.collapse の例にRailsのapp/{models,controllers}/concernsを使わない（ネストrootで処理されるため）')
 end
 
 # ============================================================================
