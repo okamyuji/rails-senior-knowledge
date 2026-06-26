@@ -303,6 +303,11 @@ end
 
 # 在庫の減算: 悲観的ロックまたはアトミックSQLを使用します
 
+# まず数量が正の整数であることをサービス層で検証する。
+# `.to_i` 経由の文字列補間は "abc" → 0 のように静かに 0 化されてしまうため、
+# update_all へ生のユーザー入力をそのまま渡してはいけない。
+raise ArgumentError, "quantity must be a positive integer" unless quantity.is_a?(Integer) && quantity.positive?
+
 Product.transaction do
   product = Product.lock.find(product_id)
   raise "在庫不足" if product.stock < quantity
@@ -311,11 +316,14 @@ Product.transaction do
 end
 
 # またはアトミックSQL（シンプルな場合）
-
+# bind parameter を使い、CHECK 制約相当の WHERE で在庫が0未満にならないことを保証する。
 result = Product.where(id: product_id)
                 .where("stock >= ?", quantity)
-                .update_all("stock = stock - #{quantity.to_i}")
-raise "在庫不足" if result == 0
+                .update_all(["stock = stock - ?", quantity])
+raise "在庫不足" if result.zero?
+
+# 加えて、 DB 側で `CHECK (stock >= 0)` 制約を設けておけば、
+# 仕様外の経路から在庫マイナスになる事故を二重に防げる。
 
 ```
 

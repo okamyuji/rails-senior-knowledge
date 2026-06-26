@@ -195,7 +195,14 @@ Falconの利点は以下の通りです。
 
 - 少ないメモリ消費で高い並行性を実現します
 - データ競合のリスクがありません（シングルスレッド内で協調的に動作します）
-- 既存のRailsコードがそのまま動作します（Fiber::Schedulerが透過的にフックします）
+- Fiber::Schedulerが透過的にフックする**Ruby標準ライブラリのI/O（Net::HTTP、Socket、IO#read/write、File、sleep等）は自動的に非ブロッキング化されます**
+
+ただし「既存のRailsコードがそのまま動作する」と言うには以下を確認する必要があります。
+
+- **DB adapter**: 公式の `mysql2` / `pg` adapterはC拡張側でブロッキングI/Oを使うため、Schedulerの恩恵を受けません。`trilogy`（MySQL用、ピュアRuby）や、Falcon環境向けの非同期adapter（例: `async-postgres`）に切り替えるか、PoolSwapを使う必要があります
+- **HTTP client**: `Net::HTTP` はSchedulerに対応していますが、`httpparty` `faraday` の一部adapter、`curb`（libcurl）、`typhoeus` などC拡張ベースのclientはSchedulerをバイパスします。`async-http` や `httpx` の利用を検討してください
+- **gem依存**: マルチスレッドを前提とした排他制御を持つgem（特にスレッドローカル変数を多用するもの）は、Fiber境界でステート漏れが起きる可能性があります。`Fiber.storage` への置き換えや個別検証が必要です
+- **ActionCable / ActiveJob / Redisクライアント**: redis-rb 5.x 以降は対応していますが、古いバージョンや一部 connection pool 実装はSchedulerに非対応です
 
 ### Asyncジーム
 

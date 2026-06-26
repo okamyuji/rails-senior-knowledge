@@ -113,9 +113,15 @@ end
 # コントローラでの実装例
 
 class Api::V1::UsersController < ApplicationController
+  PER_PAGE_DEFAULT = 20
+  PER_PAGE_MAX = 100
+
   def index
-    page = params.fetch(:page, 1).to_i
-    per_page = [params.fetch(:per_page, 20).to_i, 100].min
+    # page / per_page は **下限と上限の両方を clamp** する必要がある。
+    # `to_i` だけだと `?page=-1` や `?per_page=0` で
+    # offset が負になったりクエリが空配列を返すなど予期せぬ挙動になる。
+    page = [params.fetch(:page, 1).to_i, 1].max
+    per_page = params.fetch(:per_page, PER_PAGE_DEFAULT).to_i.clamp(1, PER_PAGE_MAX)
 
     users = User.order(:id)
                 .offset((page - 1) * per_page)

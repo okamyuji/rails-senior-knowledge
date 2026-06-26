@@ -90,9 +90,14 @@ a.equal?(b)  # => true（同一オブジェクト）
 
 ```ruby
 
-# Symbolは常に同一オブジェクトです（GCされない永続的な識別子）
-
+# 静的に書かれた `:foo` のような Symbol（immortal symbol）は同一オブジェクトを
+# 共有し、原則としてプロセスが生きている間 GC されない。
 :my_key.equal?(:my_key)  # => true
+
+# Ruby 2.2 以降、文字列から `to_sym` などで動的生成された Symbol
+# （mortal symbol）は GC 対象になっている。よって「Symbol は常に GC されない」
+# は正確ではなく、「静的リテラル Symbol は GC されない」と理解する。
+"my_key#{rand}".to_sym  # → 動的生成、参照が切れれば GC される
 
 # ハッシュキーにはSymbolを推奨します
 

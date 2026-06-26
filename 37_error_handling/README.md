@@ -39,7 +39,25 @@ class AuthorizationError < BusinessError; end
 # システムエラー（インフラ/外部サービスに起因します）
 
 class SystemError < ApplicationError; end
-class ExternalServiceError < SystemError; end
+
+class ExternalServiceError < SystemError
+  attr_reader :service_name
+
+  # 外部サービス由来のエラーは「どのサービス」が「どの原因」で失敗したかを
+  # 構造化したいので、独自initializerを定義する。
+  # original_errorは Ruby 2.1+ の `cause` 自動チェーンと併用しても良いが、
+  # `raise ... , cause: e` を使わない場合に備えてフィールドにも保持しておく。
+  def initialize(message = nil, service_name: nil, original_error: nil, **kwargs)
+    @service_name = service_name
+    super(
+      message,
+      error_code: "EXTERNAL_SERVICE_ERROR",
+      http_status: 502,
+      metadata: kwargs.merge(service_name: service_name, original_error: original_error&.class&.name)
+    )
+  end
+end
+
 class DatabaseError < SystemError; end
 
 ```

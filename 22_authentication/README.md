@@ -400,7 +400,11 @@ module Authentication
       cookies.signed.permanent[:session_token] = {
         value: new_session.token,
         httponly: true,
-        same_site: :lax
+        same_site: :lax,
+        # secure: HTTPS経由でのみCookieが送信される。本番では必須。
+        # Rails.env.local? は development/test を true にするヘルパで、
+        # ローカル開発時のみ false にして HTTP でも動作させる定石。
+        secure: !Rails.env.local?
       }
     end
   end

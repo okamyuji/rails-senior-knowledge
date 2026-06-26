@@ -76,9 +76,11 @@ ActiveRecord Encryptionは以下の3つの鍵を設定で管理します。
 
 | 鍵 | 用途 | 設定キー
 | ---- | ------ | ---------
-| プライマリキー | データ暗号化鍵（DEK）の暗号化に使用します | `primary_key`
-| 決定的キー | 決定的暗号化で使用される鍵です | `deterministic_key`
-| 鍵導出ソルト | PBKDF2による鍵導出に使用します | `key_derivation_salt`
+| プライマリキー | デフォルト（`DerivedSecretKeyProvider`）では`key_derivation_salt`とともにPBKDF2に渡され、データを暗号化する派生鍵を生成します。`EnvelopeEncryptionKeyProvider`構成では DEK 暗号化用の KEK（鍵暗号化鍵）として使われます | `primary_key`
+| 決定的キー | 決定的暗号化（インデックス・WHERE検索可能）で使用される鍵です | `deterministic_key`
+| 鍵導出ソルト | デフォルト構成でPBKDF2による鍵導出に使用します | `key_derivation_salt`
+
+DerivedSecretKeyProvider（デフォルト）は **DEKを生成しません**。`primary_key` から導出した派生鍵で直接データを暗号化するため、上の表で「DEKの暗号化」と読めるのはエンベロープ構成限定の話です。
 
 ### デフォルトの鍵導出（DerivedSecretKeyProvider）
 

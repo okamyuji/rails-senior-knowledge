@@ -44,25 +44,39 @@ end
 | 属性 | 型 | 説明
 | ------ | ------ | ------
 | `name` | String | イベント名です（例: "sql.active_record"）
-| `time` | Float | イベント開始時刻です（ActiveSupport 8.xではモノトニック時計の値）
-| `end` | Float | イベント終了時刻です（ActiveSupport 8.xではモノトニック時計の値）
-| `duration` | Float | 所要時間をミリ秒で表します
+| `time` | Float | イベント開始時刻です（通常`subscribe`では壁時計、`monotonic: true`ではモノトニック時計のミリ秒値）
+| `end` | Float | イベント終了時刻です（`time`と同じ時計種別）
+| `duration` | Float | 所要時間をミリ秒で表します（`@end - @time`）
 | `transaction_id` | String | ユニークなトランザクションIDです
 | `payload` | Hash | イベントに付随する任意のデータです
 
-### モノトニック時計による正確な計測
+### 通常subscribe vs monotonic subscribe
 
-Railsはイベントのduration計測にモノトニック時計（`Process::CLOCK_MONOTONIC`）を使用します。壁時計（`Time.now`）
-と異なり、NTPによる時刻補正の影響を受けず、常に単調増加するため、正確な経過時間の計測に適しています。
+`ActiveSupport::Notifications.subscribe` には2つの計測モードがあり、`Event#time` / `Event#end` の意味が変わります。
 
 ```ruby
 
-# 壁時計: NTP補正で巻き戻る可能性があります
+# 1. 通常モード（デフォルト）: Time.now ベースの壁時計
+ActiveSupport::Notifications.subscribe("sql.active_record") do |event|
+  event.time  # => 壁時計のepochミリ秒（例: 1719450000123.456）
+  event.end   # => 壁時計のepochミリ秒
+  # → ログのタイムスタンプ表示などに使う
+end
 
-Time.now
+# 2. monotonic モード: Process::CLOCK_MONOTONIC ベース
+ActiveSupport::Notifications.subscribe("sql.active_record", monotonic: true) do |event|
+  event.time  # => モノトニック時計のミリ秒（例: 9876543.21）
+  event.end   # => モノトニック時計のミリ秒
+  # → NTP補正の影響を受けない正確な経過時間計測に使う
+end
 
-# モノトニック時計: 常に単調増加します（Rails内部で使用されています）
+```
 
+`duration` は常に `@end - @time` で計算されるため、どちらのモードでも正しい経過ミリ秒が得られます。ただし `time` を「実際に起きた絶対時刻」として記録したいログ系では通常モード、タイマー類の経過時間記録ではmonotonicモードを選びます。
+
+```ruby
+
+# 参考: 直接モノトニック時計を取得する標準API
 Process.clock_gettime(Process::CLOCK_MONOTONIC)
 
 ```
