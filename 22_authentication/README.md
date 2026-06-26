@@ -343,7 +343,12 @@ end
 def regenerate_session(user)
   Current.session&.destroy
   new_session = user.sessions.create!
-  cookies.signed[:session_token] = new_session.token
+  cookies.signed[:session_token] = {
+    value: new_session.token,
+    httponly: true,
+    same_site: :lax,
+    secure: !Rails.env.local?
+  }
 end
 
 ```

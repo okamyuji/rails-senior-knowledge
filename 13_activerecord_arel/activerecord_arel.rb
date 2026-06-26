@@ -360,8 +360,13 @@ module ActiveRecordArel
     safe_node = users[:name].eq(malicious_input)
     safe_sql = safe_node.to_sql
 
-    # matchesも安全にエスケープする
-    safe_matches = users[:email].matches("%#{malicious_input}%")
+    # matches もシングルクォートのSQLエスケープは自動で行うが、
+    # LIKE のワイルドカード（% / _）は文字列内に含まれるとそのまま
+    # パターンとして解釈されてしまうため、別途エスケープが必要。
+    # sanitize_sql_like で %/_ を `\` でエスケープし、matches の
+    # escape 引数で `\` をエスケープ文字として明示する。
+    escaped_input = ActiveRecord::Base.sanitize_sql_like(malicious_input)
+    safe_matches = users[:email].matches("%#{escaped_input}%", '\\')
     safe_matches_sql = safe_matches.to_sql
 
     # ActiveRecordのwhereも安全
