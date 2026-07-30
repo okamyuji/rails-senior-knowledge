@@ -20,7 +20,7 @@ gem "railties", "~> 8.0"
 gem "rack", "~> 3.2"
 
 # Database
-gem "sqlite3", "~> 2.6"
+gem "sqlite3", "~> 2.9"
 
 # Authentication
 gem "bcrypt", "~> 3.1"
