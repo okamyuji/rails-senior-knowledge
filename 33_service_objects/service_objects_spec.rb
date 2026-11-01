@@ -67,9 +67,9 @@ RSpec.describe ServiceObjects do
       it '失敗時にブロックを実行すること' do
         result = described_class.failure('元のエラー', :validation)
                                 .or_else do |error, _type|
-                                  described_class.failure(
-                                    "変換後: #{error}", :handled
-                                  )
+          described_class.failure(
+            "変換後: #{error}", :handled
+          )
         end
 
         expect(result.error).to eq '変換後: 元のエラー'

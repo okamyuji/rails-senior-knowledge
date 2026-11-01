@@ -423,7 +423,7 @@ module BatchProcessing
         destroyed_count: destroyed.size,
         after_count: Record.count,
         # destroy_allは削除されたオブジェクトの配列を返す
-        returns_objects: destroyed.all? { |r| r.is_a?(Record) },
+        returns_objects: destroyed.all?(Record),
         all_frozen: destroyed.all?(&:frozen?)
       }
     end

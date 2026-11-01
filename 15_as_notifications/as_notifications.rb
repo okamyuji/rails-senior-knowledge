@@ -240,7 +240,7 @@ module AsNotifications
       {
         all_non_negative: durations.all? { |d| d >= 0 },
         count: durations.size,
-        all_numeric: durations.all? { |d| d.is_a?(Numeric) }
+        all_numeric: durations.all?(Numeric)
       }
     end
   end

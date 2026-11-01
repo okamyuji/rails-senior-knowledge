@@ -550,8 +550,8 @@ module MultiDbSharding
       tables = connection.tables.sort
 
       # 各テーブルのカラム情報
-      table_columns = tables.each_with_object({}) do |table, hash|
-        hash[table] = connection.columns(table).map { |c| { name: c.name, type: c.type } }
+      table_columns = tables.to_h do |table|
+        [table, connection.columns(table).map { |c| { name: c.name, type: c.type } }]
       end
 
       {

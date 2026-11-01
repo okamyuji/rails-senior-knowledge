@@ -104,8 +104,7 @@ RSpec.describe SolidCacheInternals do
         end
 
         # 最も古いエントリ（前半）が追い出され、新しいエントリ（後半）が残る
-        surviving = written_keys.select { |k| small_store.read(k) }
-        evicted = written_keys.reject { |k| small_store.read(k) }
+        surviving, evicted = written_keys.partition { |k| small_store.read(k) }
 
         expect(evicted).not_to be_empty
         expect(surviving).not_to be_empty

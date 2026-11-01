@@ -135,9 +135,7 @@ module SolidCacheInternals
     # 複数キーの一括読み取り
     # Solid Cacheは read_multi でIN句による一括クエリを実行する
     def read_multi(*keys)
-      normalized_map = keys.each_with_object({}) do |key, hash|
-        hash[CacheEntry.normalize_key(key)] = key
-      end
+      normalized_map = keys.to_h { |key| [CacheEntry.normalize_key(key), key] }
 
       entries = CacheEntry.where(key: normalized_map.keys)
       result = {}
@@ -559,8 +557,7 @@ module SolidCacheInternals
       end
 
       # 最も古いエントリが追い出されていることを確認
-      surviving = write_order.select { |key| store.read(key) }
-      evicted = write_order.reject { |key| store.read(key) }
+      surviving, evicted = write_order.partition { |key| store.read(key) }
 
       {
         total_written: write_order.size,
