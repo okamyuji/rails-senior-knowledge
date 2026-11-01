@@ -98,8 +98,7 @@ module CachingStrategies
         written_keys << key
       end
 
-      surviving = written_keys.select { |key| store.exist?(key) }
-      evicted = written_keys.reject { |key| store.exist?(key) }
+      surviving, evicted = written_keys.partition { |key| store.exist?(key) }
 
       {
         total_written: written_keys.size,

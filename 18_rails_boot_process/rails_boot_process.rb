@@ -225,7 +225,7 @@ module RailsBootProcess
     # Kahn のアルゴリズムで順序を決定する
     def topological_sort
       # 名前からInitializerへのマップ
-      by_name = @initializers.each_with_object({}) { |init, h| h[init.name] = init }
+      by_name = @initializers.to_h { |init| [init.name, init] }
 
       # 隣接リストと入次数を構築
       # edge: a -> b は「a が b より先に実行される」ことを意味する

@@ -235,7 +235,7 @@ module RefinementsDemo
       refine Array do
         # 要素の出現回数をカウントしてハッシュで返す
         def frequency_map
-          each_with_object(Hash.new(0)) { |item, counts| counts[item] += 1 }
+          tally
         end
 
         # 平均値を計算（数値配列用）

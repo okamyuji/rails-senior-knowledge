@@ -109,6 +109,10 @@ Naming/MethodParameterName:
 Lint/DuplicateBranch:
   Enabled: false
 
+# 教材は1トピック1ファイルで、説明のモジュールとデモ用のクラスを同じファイルに置く
+Style/OneClassPerFile:
+  Enabled: false
+
 # 教材コードでは puts を許容
 Rails/Output:
   Enabled: false
