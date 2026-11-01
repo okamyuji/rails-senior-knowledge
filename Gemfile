@@ -28,4 +28,4 @@ gem "bcrypt", "~> 3.1"
 # Background jobs / cache / cable
 gem "solid_queue", "~> 1.7"
 gem "solid_cache", "~> 1.0"
-gem "solid_cable", "~> 3.0"
+gem "solid_cable", "~> 4.1"
