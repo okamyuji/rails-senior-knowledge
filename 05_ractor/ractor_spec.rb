@@ -3,18 +3,18 @@
 require_relative '../spec/spec_helper'
 require_relative 'ractor'
 
-# Ractorはまだexperimentalな機能であるため、環境によっては利用できない。
-# テストの安定性を確保するため、Ractorが利用可能かどうかを事前にチェックする。
-RACTOR_AVAILABLE = defined?(Ractor) && begin
-  r = Ractor.new { 1 }
-  r.take == 1
-rescue StandardError
-  false
-end
-
 RSpec.describe RactorParallel do
+  # Ractorはまだexperimentalな機能であるため、環境によっては利用できない。
+  # 判定は例の実行時に行う。ファイルの読み込み時にRactorを作ると、そのあとで
+  # 読み込まれるZeitwerkのKernel#requireが壊れ、他のspecの読み込みが落ちる。
+  def ractor_available?
+    defined?(Ractor) && Ractor.new { 1 }.take == 1
+  rescue StandardError
+    false
+  end
+
   before do
-    skip 'Ractorが利用できない環境です' unless RACTOR_AVAILABLE
+    skip 'Ractorが利用できない環境です' unless ractor_available?
   end
 
   # ---------------------------------------------------------------------------

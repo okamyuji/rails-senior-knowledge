@@ -109,9 +109,21 @@ Naming/MethodParameterName:
 Lint/DuplicateBranch:
   Enabled: false
 
-# 教材は1トピック1ファイルで、説明のモジュールとデモ用のクラスを同じファイルに置く
+# 既存の教材は1トピック1ファイルで、説明のモジュールとデモ用のクラスを同じファイルに置く。
+# 新しく書くファイルには検査を効かせるため、対象から外すのは既存のファイルだけにする。
 Style/OneClassPerFile:
-  Enabled: false
+  Exclude:
+    - '10_tracepoint_objectspace/tracepoint_objectspace.rb'
+    - '13_activerecord_arel/activerecord_arel.rb'
+    - '14_connection_pool/connection_pool.rb'
+    - '21_solid_cable/solid_cable.rb'
+    - '23_activerecord_encryption/activerecord_encryption.rb'
+    - '24_generates_token_for/generates_token_for.rb'
+    - '26_n_plus_one/n_plus_one.rb'
+    - '27_multi_db/multi_db.rb'
+    - '28_database_locking/database_locking.rb'
+    - '29_batch_processing/batch_processing.rb'
+    - '30_query_plan/query_plan.rb'
 
 # 教材コードでは puts を許容
 Rails/Output:
