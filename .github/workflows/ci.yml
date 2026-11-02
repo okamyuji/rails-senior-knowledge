@@ -11,6 +11,11 @@ permissions:
 
 jobs:
   ci:
+    # rails-ci has a job that asks for pull-requests: write; without it here the
+    # whole workflow fails at startup. The jobs that run code drop back to contents: read.
+    permissions:
+      contents: read
+      pull-requests: write
     uses: okamyuji/reusable-workflows/.github/workflows/rails-ci.yml@v1
     with:
       lint-command: bundle exec rubocop
