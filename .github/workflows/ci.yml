@@ -1,0 +1,22 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: okamyuji/reusable-workflows/.github/workflows/rails-ci.yml@v1
+    with:
+      lint-command: bundle exec rubocop
+      test-command: bundle exec rake
+      # Brakeman needs a Rails app; this repo is a set of standalone examples.
+      security-scan: false
+
+  security:
+    uses: okamyuji/reusable-workflows/.github/workflows/security-scan.yml@v1
