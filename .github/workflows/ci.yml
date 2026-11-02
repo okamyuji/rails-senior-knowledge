@@ -10,6 +10,10 @@ permissions:
   contents: read
 
 jobs:
+  # rails-ci with security-scan: false (or no rails-ci) does not run bundler-audit
+  audit:
+    uses: okamyuji/reusable-workflows/.github/workflows/ruby-audit.yml@v1
+
   ci:
     # rails-ci has a job that asks for pull-requests: write; without it here the
     # whole workflow fails at startup. The jobs that run code drop back to contents: read.
