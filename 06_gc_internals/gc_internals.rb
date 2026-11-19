@@ -38,7 +38,15 @@ module GcInternals
 
     # 短命なオブジェクトを大量に生成してマイナーGCを誘発する
     # これらのオブジェクトはすぐにスコープを抜けるため、次のGCで回収される
-    10_000.times { "temporary_string_#{it}" }
+    # 空きスロットやヒープ拡張で吸収されるとGCが一度も起きないので、
+    # マイナーGCが数回起きるまで作り続ける（上限つき）
+    100.times do
+      break if GC.stat(:minor_gc_count) - stat_before[:minor_gc_count] >= 3
+
+      100_000.times { "temporary_string_#{it}" }
+    end
+
+    stat_after_allocation = GC.stat
 
     # GCを明示的に実行（マイナーGCが走る可能性が高い）
     GC.start(full_mark: false) # full_mark: false はマイナーGCを要求
@@ -55,8 +63,10 @@ module GcInternals
       minor_gc_after: stat_after_minor[:minor_gc_count],
       major_gc_before: stat_before[:major_gc_count],
       major_gc_after: stat_after_major[:major_gc_count],
-      # マイナーGCはメジャーGCより頻繁に発生するのが正常
-      minor_more_frequent: stat_after_major[:minor_gc_count] >= stat_after_major[:major_gc_count]
+      # マイナーGCはメジャーGCより頻繁に発生するのが正常。
+      # 累計はプロセス内で先に呼ばれた GC.start（メジャー）に左右されるため、生成中に自然に起きた分だけを比べる
+      minor_more_frequent: stat_after_allocation[:minor_gc_count] - stat_before[:minor_gc_count] >
+        stat_after_allocation[:major_gc_count] - stat_before[:major_gc_count]
     }
   end
 
