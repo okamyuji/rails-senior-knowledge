@@ -57,7 +57,7 @@ Ractorは各インスタンスが独自のGVLを持つため、複数のRactor�
 │  │  Ractor固有の    │    │  Ractor固有の    │               │
 │  │  オブジェクトテーブル │    │  オブジェクトテーブル │               │
 │  └─────────────────┘    └─────────────────┘               │
-│         ↕ メッセージパッシング(send/take)                    │
+│         ↕ メッセージパッシング(send/Port)                    │
 │         ↕ shareableオブジェクトのみ参照共有可能                │
 └──────────────────────────────────────────────────────────┘
 
@@ -120,25 +120,37 @@ ractor = Ractor.new do
 end
 
 ractor.send("データ")   # メッセージを送信
-result = ractor.take     # 結果を取得
-
+result = ractor.value    # ブロックの戻り値を取得
 ```
 
-### Pull型（yield/take）
+### Pull型（Ractor::Port）
 
 Ractorが結果を公開し、外部から取り出すパターンです。ジェネレーターパターンに適しています。
 
 ```ruby
+port = Ractor::Port.new
 
-ractor = Ractor.new do
-  Ractor.yield("結果1")
-  Ractor.yield("結果2")
+Ractor.new(port) do |out|
+  out << "結果1"
+  out << "結果2"
 end
 
-first = ractor.take   # "結果1"
-second = ractor.take  # "結果2"
-
+first = port.receive   # "結果1"
+second = port.receive  # "結果2"
 ```
+
+`Port#receive`を呼べるのは、そのPortを作成したRactorだけです。複数のRactorの終了を待つときは、`Ractor.select`にRactorまたはPortを渡します。Ractorを渡すと、終了したRactorと`Ractor#value`の値を返します。
+
+### Ruby 3.xからの変更
+
+Ruby 3.xのPull型は`Ractor.yield`と`Ractor#take`でした。Ruby 4.0ではこれらと`Ractor#close_incoming`、`Ractor#close_outgoing`が削除され、`Ractor::Port`と`Ractor#value`、`Ractor#join`に置き換わりました。
+
+| 3.x | 4.0 |
+| ---- | ---- |
+| `Ractor.yield(x)` | `port << x`（Portは引数で渡します） |
+| `ractor.take`（yieldされた値） | `port.receive` |
+| `ractor.take`（ブロックの戻り値） | `ractor.value` |
+| `Ractor.select`にRactor以外を渡す | RactorとPortだけを渡せます |
 
 ## 分離ルールと共有可能オブジェクト
 
