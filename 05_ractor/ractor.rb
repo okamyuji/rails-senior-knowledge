@@ -2,13 +2,15 @@
 
 # Ractor: Rubyの並列実行モデル
 #
-# Ruby 3.0で導入されたRactorは、GVL（Global VM Lock）の制約を超えて
+# Ruby 3.0で導入され、Ruby 4.0でAPIが整理されたRactorは、GVL（Global VM Lock）の制約を超えて
 # 真の並列実行を実現するためのアクターモデルベースの並行・並列処理機構。
 #
 # 主な特徴:
 # - 各Ractorは独立したメモリ空間を持つ
 # - オブジェクトの共有は厳密に制限される（安全性の保証）
 # - メッセージパッシングによる通信
+#   Ruby 4.0では Ractor::Port と Ractor#value が結果の受け渡しを担う
+#   （3.xの Ractor.yield / Ractor#take は削除された）
 # - CPU-bound処理の並列化に適している
 module RactorParallel
   # ==========================================================================
@@ -26,21 +28,26 @@ module RactorParallel
 
     # send でメッセージを送る
     ractor.send(message)
-    # take で結果を取得する
-    ractor.take
+    # value でブロックの戻り値を取得する
+    ractor.value
   end
 
-  # pull型通信: Ractor.yield で結果を公開し、Ractor#take で取り出す
-  # Ractorが計算結果を「公開」し、外部から「引き出す」パターン
+  # pull型通信: Ractor::Port に結果を送り、呼び出し側が Port#receive で取り出す
+  # Ractorが計算結果を Port へ「公開」し、外部から「引き出す」パターン
+  # （3.xの Ractor.yield / Ractor#take の代わり）
   def self.pull_style_communication(value)
-    ractor = Ractor.new(value) do |val|
-      # 引数として受け取った値を加工して yield で公開
-      result = val * 2
-      Ractor.yield(result)
+    port = Ractor::Port.new
+
+    # Port は shareable なので引数として Ractor に渡せる
+    worker = Ractor.new(port, value) do |out, val|
+      # 引数として受け取った値を加工して Port へ送る
+      out << (val * 2)
     end
 
-    # take で Ractor が yield した値を取得
-    ractor.take
+    # 先に終了を待つ。ワーカーが例外で終わると Port には何も届かず、receive が戻らないため
+    worker.value
+    # Port#receive は Port を作った Ractor（ここでは呼び出し側）だけが呼べる
+    port.receive
   end
 
   # 複数メッセージのやり取り（双方向通信）
@@ -58,7 +65,7 @@ module RactorParallel
 
     values.each { |v| ractor.send(v) }
     ractor.send(:done)
-    ractor.take
+    ractor.value
   end
 
   # ==========================================================================
@@ -125,7 +132,7 @@ module RactorParallel
     end
 
     ractor.send(original)
-    modified = ractor.take
+    modified = ractor.value
 
     {
       original: original,        # [1, 2, 3] — 変更されない
@@ -147,7 +154,7 @@ module RactorParallel
 
     # move: true で所有権を移転
     ractor.send(original, move: true)
-    modified = ractor.take
+    modified = ractor.value
 
     # originalは移動済みなのでアクセスするとエラーになる
     begin
@@ -195,7 +202,7 @@ module RactorParallel
     end
 
     # Fan-in: 全ワーカーの結果を集約
-    workers.flat_map(&:take)
+    workers.flat_map(&:value)
   end
 
   # 素数判定（CPU-bound処理の例）
@@ -210,16 +217,15 @@ module RactorParallel
   # 5. Ractor.select: 複数Ractorの同時待機
   # ==========================================================================
 
-  # Ractor.select で最初に完了したRactorの結果を取得する
+  # Ractor.select は Ractor を渡すと、そのRactorが終了した時点で
+  # [Ractor, 戻り値] を返す（Ruby 4.0では Ractor と Port だけを受け付ける）
   # 複数のRactorが並列に動作し、完了した順に結果を回収できる
   def self.select_from_multiple_ractors(tasks)
     # 各タスクを処理するRactorを生成
     ractors = tasks.map do |task|
       Ractor.new(task) do |t|
         # シミュレーション: タスクごとに異なる処理時間
-        result = t[:value] * t[:multiplier]
-        Ractor.yield(result)
-        result # take用のフォールバック
+        t[:value] * t[:multiplier]
       end
     end
 
@@ -282,7 +288,7 @@ module RactorParallel
       end
     end
 
-    ractors.map(&:take)
+    ractors.map(&:value)
   end
 
   # フィボナッチ計算（CPU-bound処理の例）
@@ -306,7 +312,7 @@ module RactorParallel
       # frozen_string_literal: true のおかげで文字列定数はshareable
       RactorParallel::SHAREABLE_CONSTANT
     end
-    ractor.take
+    ractor.value
   end
 
   # Ractor内ではクラス変数・グローバル変数へのアクセスが制限される
@@ -338,34 +344,29 @@ module RactorParallel
   # ==========================================================================
 
   # ステージ1 → ステージ2 のパイプライン
+  # ステージ間は Ractor#send で直接つなぎ、最終結果は Port で呼び出し側へ返す
   def self.pipeline_pattern(input_values)
     count = input_values.size
+    results_port = Ractor::Port.new
 
-    # ステージ1: 値を2倍にする
-    stage1 = Ractor.new(count) do |n|
-      n.times do
-        value = Ractor.receive
-        Ractor.yield(value * 2)
-      end
+    # ステージ2: ステージ1の結果に10を加算して結果 Port へ送る
+    stage2 = Ractor.new(results_port, count) do |out, n|
+      n.times { out << (Ractor.receive + 10) }
     end
 
-    # ステージ2: ステージ1の結果に10を加算する
-    stage2 = Ractor.new(stage1, count) do |source, n|
-      n.times do
-        value = source.take
-        Ractor.yield(value + 10)
-      end
+    # ステージ1: 値を2倍にしてステージ2へ送る
+    stage1 = Ractor.new(stage2, count) do |next_stage, n|
+      n.times { next_stage.send(Ractor.receive * 2) }
     end
 
     # 入力値をステージ1に送る
     input_values.each { |v| stage1.send(v) }
 
-    # 結果を収集
-    results = []
-    count.times do
-      results << stage2.take
-    end
+    # 先に両ステージの終了を待ち、途中の例外を呼び出し側へ伝える（Port は送られた値をためておく）
+    stage1.value
+    stage2.value
 
-    results
+    # 結果を収集
+    Array.new(count) { results_port.receive }
   end
 end

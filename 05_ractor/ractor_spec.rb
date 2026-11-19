@@ -1,22 +1,10 @@
 # frozen_string_literal: true
 
 require_relative '../spec/spec_helper'
+require 'timeout'
 require_relative 'ractor'
 
 RSpec.describe RactorParallel do
-  # Ractorはまだexperimentalな機能であるため、環境によっては利用できない。
-  # 判定は例の実行時に行う。ファイルの読み込み時にRactorを作ると、そのあとで
-  # 読み込まれるZeitwerkのKernel#requireが壊れ、他のspecの読み込みが落ちる。
-  def ractor_available?
-    defined?(Ractor) && Ractor.new { 1 }.take == 1
-  rescue StandardError
-    false
-  end
-
-  before do
-    skip 'Ractorが利用できない環境です' unless ractor_available?
-  end
-
   # ---------------------------------------------------------------------------
   # 1. push型通信のテスト
   # ---------------------------------------------------------------------------
@@ -39,6 +27,12 @@ RSpec.describe RactorParallel do
     it '引数で渡した値を2倍にして返す' do
       result = described_class.pull_style_communication(21)
       expect(result).to eq(42)
+    end
+
+    it 'ワーカーが失敗すると待ち続けずに例外を伝える' do
+      expect do
+        Timeout.timeout(5) { described_class.pull_style_communication(nil) }
+      end.to raise_error(Ractor::RemoteError)
     end
   end
 
@@ -152,6 +146,12 @@ RSpec.describe RactorParallel do
   # ---------------------------------------------------------------------------
   # 10. Thread（I/O-bound）のテスト
   # ---------------------------------------------------------------------------
+  describe '.ractor_cpu_bound_example' do
+    it '各Ractorでフィボナッチ数を計算して入力順に返す' do
+      expect(described_class.ractor_cpu_bound_example([10, 15, 20])).to eq([55, 610, 6765])
+    end
+  end
+
   describe '.thread_io_bound_example' do
     it '複数スレッドで並行にI/O処理を実行する' do
       results = described_class.thread_io_bound_example(3)
@@ -182,6 +182,12 @@ RSpec.describe RactorParallel do
       # ステージ2: +10 → [12, 14, 16]
       expect(results).to eq([12, 14, 16])
     end
+
+    it 'ステージが失敗すると待ち続けずに例外を伝える' do
+      expect do
+        Timeout.timeout(5) { described_class.pipeline_pattern([1, nil, 3]) }
+      end.to raise_error(Ractor::RemoteError)
+    end
   end
 
   # ---------------------------------------------------------------------------
@@ -191,9 +197,8 @@ RSpec.describe RactorParallel do
     it '非shareableなオブジェクトを渡すとエラー情報を返す' do
       result = described_class.demonstrate_isolation_error
 
-      # Rubyのバージョンによってエラークラスが異なる可能性がある
-      expect(result).to have_key(:error_class)
-      expect(result).to have_key(:message)
+      expect(result[:error_class]).to eq('Ractor::Error')
+      expect(result[:message]).to be_a(String).and(satisfy { |m| !m.empty? })
     end
   end
 end
