@@ -1,6 +1,7 @@
 # frozen_string_literal: true
 
 require_relative '../spec/spec_helper'
+require 'timeout'
 require_relative 'ractor'
 
 RSpec.describe RactorParallel do
@@ -26,6 +27,12 @@ RSpec.describe RactorParallel do
     it '引数で渡した値を2倍にして返す' do
       result = described_class.pull_style_communication(21)
       expect(result).to eq(42)
+    end
+
+    it 'ワーカーが失敗すると待ち続けずに例外を伝える' do
+      expect do
+        Timeout.timeout(5) { described_class.pull_style_communication(nil) }
+      end.to raise_error(Ractor::RemoteError)
     end
   end
 
@@ -174,6 +181,12 @@ RSpec.describe RactorParallel do
       # ステージ1: *2 → [2, 4, 6]
       # ステージ2: +10 → [12, 14, 16]
       expect(results).to eq([12, 14, 16])
+    end
+
+    it 'ステージが失敗すると待ち続けずに例外を伝える' do
+      expect do
+        Timeout.timeout(5) { described_class.pipeline_pattern([1, nil, 3]) }
+      end.to raise_error(Ractor::RemoteError)
     end
   end
 

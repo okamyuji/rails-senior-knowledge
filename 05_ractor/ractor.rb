@@ -39,11 +39,13 @@ module RactorParallel
     port = Ractor::Port.new
 
     # Port は shareable なので引数として Ractor に渡せる
-    Ractor.new(port, value) do |out, val|
+    worker = Ractor.new(port, value) do |out, val|
       # 引数として受け取った値を加工して Port へ送る
       out << (val * 2)
     end
 
+    # 先に終了を待つ。ワーカーが例外で終わると Port には何も届かず、receive が戻らないため
+    worker.value
     # Port#receive は Port を作った Ractor（ここでは呼び出し側）だけが呼べる
     port.receive
   end
@@ -359,6 +361,10 @@ module RactorParallel
 
     # 入力値をステージ1に送る
     input_values.each { |v| stage1.send(v) }
+
+    # 先に両ステージの終了を待ち、途中の例外を呼び出し側へ伝える（Port は送られた値をためておく）
+    stage1.value
+    stage2.value
 
     # 結果を収集
     Array.new(count) { results_port.receive }
