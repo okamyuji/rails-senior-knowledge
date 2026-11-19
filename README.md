@@ -1,11 +1,11 @@
 # Rails Senior Knowledge
 
-Ruby 3.4 / Rails 8を対象としたシニアRailsエンジニア向けの教育プロジェクトです。
+Ruby 4.0 / Rails 8を対象としたシニアRailsエンジニア向けの教育プロジェクトです。
 各トピックでは、実務で必要となる内部動作の理解や設計判断に役立つ知識を、実行可能なコードとテストを通じて学びます。
 
 ## 前提条件
 
-- Ruby 3.4.11
+- Ruby 4.0.10
 - Bundler
 
 ## セットアップ
@@ -127,7 +127,7 @@ Rails 8で追加・デフォルト化された機能を活用し、依存関係�
 
 ## 技術スタック
 
-- Ruby 3.4.11
+- Ruby 4.0.10
 - Rails 8.x（個別gem利用: ActiveRecord, ActiveSupport, ActiveModel, ActionPack,
   Railties）
 - RSpec 3.13（テスト）
