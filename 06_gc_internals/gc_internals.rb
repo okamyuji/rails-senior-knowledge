@@ -38,8 +38,13 @@ module GcInternals
 
     # 短命なオブジェクトを大量に生成してマイナーGCを誘発する
     # これらのオブジェクトはすぐにスコープを抜けるため、次のGCで回収される
-    # 空きスロットに収まるとGCが一度も起きないので、空き数を超える量を作る
-    ((stat_before[:heap_free_slots] * 3) + 100_000).times { "temporary_string_#{it}" }
+    # 空きスロットやヒープ拡張で吸収されるとGCが一度も起きないので、
+    # マイナーGCが数回起きるまで作り続ける（上限つき）
+    100.times do
+      break if GC.stat(:minor_gc_count) - stat_before[:minor_gc_count] >= 3
+
+      100_000.times { "temporary_string_#{it}" }
+    end
 
     stat_after_allocation = GC.stat
 

@@ -4,7 +4,7 @@ require_relative 'gc_internals'
 
 RSpec.describe GcInternals do
   describe '.demonstrate_generational_gc' do
-    it '世代別GCの統計情報を返し、マイナーGCがメジャーGC以上の頻度で発生していること' do
+    it '世代別GCの統計情報を返し、短命なオブジェクトの生成中はマイナーGCがメジャーGCより多く発生すること' do
       result = described_class.demonstrate_generational_gc
 
       expect(result).to include(
@@ -17,7 +17,7 @@ RSpec.describe GcInternals do
       expect(result[:minor_gc_after]).to be >= result[:minor_gc_before]
       # メジャーGCの回数が増加しているか、少なくとも同じであること
       expect(result[:major_gc_after]).to be >= result[:major_gc_before]
-      # マイナーGCの累計はメジャーGC以上であること
+      # 生成中に増えた回数は、マイナーGCがメジャーGCより多いこと
       expect(result[:minor_more_frequent]).to be true
     end
   end
