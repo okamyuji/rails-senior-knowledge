@@ -184,9 +184,8 @@ RSpec.describe RactorParallel do
     it '非shareableなオブジェクトを渡すとエラー情報を返す' do
       result = described_class.demonstrate_isolation_error
 
-      # Rubyのバージョンによってエラークラスが異なる可能性がある
-      expect(result).to have_key(:error_class)
-      expect(result).to have_key(:message)
+      expect(result[:error_class]).to eq('Ractor::Error')
+      expect(result[:message]).to be_a(String).and(satisfy { |m| !m.empty? })
     end
   end
 end
